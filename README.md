@@ -23,6 +23,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Architecture invariants | 262,144 max positions, RoPE theta 64,000,000, vocab 263,168, Gemma-style turn markers |
 | LUMI artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |
 | First execution gate | 16.78M-token sampled data build from all 12 slices, then 10 × 16K updates on the real 8-node / 64-GCD topology |
+| Sanity gate status | Passed on 2026-08-18: data job `21346805`, GPU job `21348717`; see [`runs/21348717-reasoning-sanity.md`](runs/21348717-reasoning-sanity.md) |
 | Acceptance rule | Reasoning improves while multilingual instruction, code, safety, and 256K retrieval stay within the gates in [`docs/EVALUATION.md`](docs/EVALUATION.md) |
 
 ## Reasoning-v1 data
@@ -115,6 +116,7 @@ and one-node smoke gate both pass.
 | [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md) | stage rationale and detailed choices |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | benchmark matrix and acceptance gates |
 | [`docs/ARTIFACTS.md`](docs/ARTIFACTS.md) | artifact lineage and run-record contract |
+| [`runs/`](runs/) | executed LUMI gate records and observed metrics |
 
 ## Current verified LUMI assets
 
