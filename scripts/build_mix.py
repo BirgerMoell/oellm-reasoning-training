@@ -16,7 +16,8 @@ from typing import Any
 
 import yaml
 from datasets import Dataset, concatenate_datasets, load_dataset
-from transformers import AutoTokenizer
+
+from tokenizer_utils import load_local_tokenizer
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,17 +107,20 @@ def openr1_messages(example: dict[str, Any]) -> tuple[list[dict[str, str]] | Non
     return messages, "ok"
 
 
-def quotas(config: dict[str, Any]) -> list[int]:
-    target = int(config["target_tokens"])
-    result = []
+def weighted_quotas(config: dict[str, Any], fixed_tokens: int) -> dict[str, int]:
+    weighted = [source for source in config["sources"] if source["selection"] == "token_weighted"]
+    target = int(config["target_tokens"]) - fixed_tokens
+    if target <= 0:
+        raise ValueError(f"consume-once sources use {fixed_tokens:,} tokens, exhausting the target")
+    result: dict[str, int] = {}
     allocated = 0
-    for index, source in enumerate(config["sources"]):
-        if index == len(config["sources"]) - 1:
+    for index, source in enumerate(weighted):
+        if index == len(weighted) - 1:
             quota = target - allocated
         else:
             quota = int(round(target * float(source["token_share"])))
             allocated += quota
-        result.append(quota)
+        result[source["id"]] = quota
     return result
 
 
@@ -154,14 +158,28 @@ def normalize_dataset(
 ) -> tuple[Dataset, Counter[str]]:
     original_columns = list(dataset.column_names)
     adapter = source["adapter"]
+    workers = None if num_proc <= 1 else num_proc
 
     def normalize(example: dict[str, Any]) -> dict[str, Any]:
         if adapter == "openr1_verified":
             messages, reason = openr1_messages(example)
+        elif adapter == "accepted_messages":
+            quality = example.get("quality") or {}
+            if not isinstance(quality, dict) or not bool(quality.get("accepted")):
+                messages, reason = None, "quality_not_accepted"
+            else:
+                messages, reason = clean_messages(example.get("messages"))
         elif adapter == "messages":
             messages, reason = clean_messages(example.get("messages"))
         else:
             messages, reason = None, "unknown_adapter"
+
+        if source.get("language") == "from_row":
+            row_language = str(example.get(source.get("language_field", "language"), "")).strip()
+        else:
+            row_language = str(source["language"])
+        if not row_language:
+            row_language = "unknown"
 
         if messages is None:
             return {
@@ -169,7 +187,7 @@ def normalize_dataset(
                 "prompt_hash": "",
                 "token_count": 0,
                 "source_id": source["id"],
-                "language": source["language"],
+                "language": row_language,
                 "task": source["role"],
                 "has_think_tags": False,
                 "_valid": False,
@@ -201,10 +219,14 @@ def normalize_dataset(
             reason = "missing_normalized_prompt"
         return {
             "messages": messages,
-            "prompt_hash": hashlib.sha256(prompt.encode("utf-8")).hexdigest() if prompt else "",
+            "prompt_hash": (
+                hashlib.sha256(f"{row_language}\0{prompt}".encode("utf-8")).hexdigest()
+                if prompt
+                else ""
+            ),
             "token_count": token_count,
             "source_id": source["id"],
-            "language": source["language"],
+            "language": row_language,
             "task": source["role"],
             "has_think_tags": "<think>" in assistant and "</think>" in assistant,
             "_valid": reason == "ok",
@@ -214,14 +236,14 @@ def normalize_dataset(
     mapped = dataset.map(
         normalize,
         remove_columns=original_columns,
-        num_proc=num_proc,
+        num_proc=workers,
         desc=f"normalize {source['id']}",
     )
     reasons = Counter(mapped["_reason"])
     valid = mapped.filter(
         lambda valid: valid,
         input_columns=["_valid"],
-        num_proc=num_proc,
+        num_proc=workers,
         desc=f"filter {source['id']}",
     ).remove_columns(["_valid", "_reason"])
     return valid, reasons
@@ -264,6 +286,33 @@ def select_unique_to_quota(
     }
 
 
+def select_all_unique(
+    dataset: Dataset,
+    source_id: str,
+    connection: sqlite3.Connection,
+) -> tuple[Dataset, dict[str, int]]:
+    selected_indices: list[int] = []
+    selected_tokens = 0
+    duplicates = 0
+    cursor = connection.cursor()
+    for index, row in enumerate(dataset):
+        cursor.execute(
+            "INSERT OR IGNORE INTO prompts(prompt_hash, source_id) VALUES (?, ?)",
+            (row["prompt_hash"], source_id),
+        )
+        if cursor.rowcount == 0:
+            duplicates += 1
+            continue
+        selected_indices.append(index)
+        selected_tokens += int(row["token_count"])
+    connection.commit()
+    return dataset.select(selected_indices), {
+        "selected_rows": len(selected_indices),
+        "selected_tokens": selected_tokens,
+        "duplicates_skipped": duplicates,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
@@ -288,7 +337,7 @@ def main() -> None:
             path.unlink()
 
     model_dir = args.root / "models" / config["model"]["local_name"]
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
+    tokenizer = load_local_tokenizer(model_dir)
     tokenizer.chat_template = TEMPLATE.read_text(encoding="utf-8")
 
     connection = sqlite3.connect(database_file)
@@ -297,9 +346,10 @@ def main() -> None:
     )
     selected_parts: list[Dataset] = []
     source_manifests = []
-    per_source_quotas = quotas(config)
+    fixed_tokens = 0
+    per_source_quotas: dict[str, int] | None = None
 
-    for source_index, (source, quota) in enumerate(zip(config["sources"], per_source_quotas)):
+    for source_index, source in enumerate(config["sources"]):
         files = resolve_files(source, args.root)
         print(f"[load] {source['id']} from {len(files)} file(s)", flush=True)
         dataset = load_dataset(
@@ -319,23 +369,66 @@ def main() -> None:
             int(config["max_tokens_per_example"]),
             args.num_proc,
         )
+        for reason, expected_count in source.get("expected_filter_reasons", {}).items():
+            actual_count = int(reasons.get(reason, 0))
+            if actual_count != int(expected_count):
+                raise ValueError(
+                    f"filter-count mismatch for {source['id']} ({reason}): "
+                    f"{actual_count:,} != {int(expected_count):,}"
+                )
         normalized = normalized.shuffle(seed=int(config["seed"]) + source_index)
-        selected, selection = select_unique_to_quota(
-            normalized, source["id"], quota, connection
-        )
+        if source["selection"] == "all_once":
+            if per_source_quotas is not None:
+                raise ValueError("all_once sources must appear before token_weighted sources")
+            selected, selection = select_all_unique(normalized, source["id"], connection)
+            fixed_tokens += selection["selected_tokens"]
+            quota = None
+        elif source["selection"] == "token_weighted":
+            if per_source_quotas is None:
+                per_source_quotas = weighted_quotas(config, fixed_tokens)
+            quota = per_source_quotas[source["id"]]
+            selected, selection = select_unique_to_quota(
+                normalized, source["id"], quota, connection
+            )
+        else:
+            raise ValueError(f"unknown selection strategy for {source['id']}: {source['selection']}")
         selected_parts.append(selected)
         think_rows = sum(bool(value) for value in selected["has_think_tags"])
+        language_counts = Counter(selected["language"])
+        expected_selected_rows = source.get("expected_selected_rows")
+        if expected_selected_rows is not None and len(selected) != int(expected_selected_rows):
+            raise ValueError(
+                f"selected row mismatch for {source['id']}: "
+                f"{len(selected):,} != {int(expected_selected_rows):,}"
+            )
+        expected_selected_tokens = source.get("expected_selected_tokens")
+        if (
+            expected_selected_tokens is not None
+            and selection["selected_tokens"] != int(expected_selected_tokens)
+        ):
+            raise ValueError(
+                f"selected token mismatch for {source['id']}: "
+                f"{selection['selected_tokens']:,} != {int(expected_selected_tokens):,}"
+            )
+        expected_languages = source.get("expected_languages")
+        if expected_languages is not None and len(language_counts) != int(expected_languages):
+            raise ValueError(
+                f"language-count mismatch for {source['id']}: "
+                f"{len(language_counts)} != {int(expected_languages)}"
+            )
         source_manifest = {
             "id": source["id"],
             "role": source["role"],
             "language": source["language"],
             "license": source["license"],
-            "requested_token_share": source["token_share"],
+            "selection": source["selection"],
+            "requested_token_share": source.get("token_share"),
             "token_quota": quota,
             "raw_rows": raw_rows,
             "valid_rows": len(normalized),
             "filter_reasons": dict(sorted(reasons.items())),
             "think_tag_rows": think_rows,
+            "language_counts": dict(sorted(language_counts.items())),
             "input": source["input"],
             "resolved_files": [
                 {"path": str(path), "bytes": path.stat().st_size} for path in files
@@ -343,9 +436,10 @@ def main() -> None:
             **selection,
         }
         source_manifests.append(source_manifest)
+        quota_label = "all valid rows" if quota is None else f"quota {quota:,}"
         print(
             f"[select] {source['id']}: {selection['selected_rows']:,} rows, "
-            f"{selection['selected_tokens']:,}/{quota:,} tokens",
+            f"{selection['selected_tokens']:,} tokens ({quota_label})",
             flush=True,
         )
 
@@ -367,6 +461,7 @@ def main() -> None:
         "model": config["model"],
         "chat_template_sha256": sha256_file(TEMPLATE),
         "target_tokens": config["target_tokens"],
+        "consume_once_tokens": fixed_tokens,
         "selected_tokens": total_tokens,
         "selected_rows": total_rows,
         "min_tokens_per_example": config["min_tokens_per_example"],

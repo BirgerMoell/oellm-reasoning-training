@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 import torch
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM
 from trl import (
     DatasetMixtureConfig,
     ModelConfig,
@@ -20,6 +20,8 @@ from trl import (
     get_dataset,
     get_peft_config,
 )
+
+from tokenizer_utils import load_local_tokenizer
 
 
 EXPECTED = {
@@ -167,10 +169,9 @@ def main(
     if model_args.attn_implementation != "flash_attention_2":
         raise RuntimeError("packed reasoning SFT requires flash_attention_2")
     model = load_model(model_args)
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = load_local_tokenizer(
         model_args.model_name_or_path,
         trust_remote_code=model_args.trust_remote_code,
-        local_files_only=True,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token

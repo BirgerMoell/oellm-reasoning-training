@@ -52,6 +52,7 @@ The builder writes:
 - input repository IDs/revisions or absolute local paths;
 - resolved input files and sizes;
 - raw, invalid, duplicate, overlength, and selected row counts;
+- selection strategy (`all_once` or `token_weighted`) and per-language counts;
 - selected rendered tokens and achieved token share per slice;
 - tokenizer/model revision and template SHA;
 - seed, builder Git SHA when available, build host/time;

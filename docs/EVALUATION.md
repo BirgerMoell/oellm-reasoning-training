@@ -21,6 +21,10 @@ Do not add benchmark training examples to the mixture after baseline evaluation.
 datasets already remove matches against the core suite; keep their decontamination metadata in the run
 record.
 
+The multilingual v0.2 pilot has automated translation gates but no systematic native-speaker or independent
+solver validation. Report its 37 languages separately in the training manifest and do not use its 99 source
+problems as an evaluation set. Use independent multilingual reasoning prompts for acceptance.
+
 ## Relative gates
 
 Let `B` be the score from the pinned starting checkpoint and `C` the candidate scored with the same run.

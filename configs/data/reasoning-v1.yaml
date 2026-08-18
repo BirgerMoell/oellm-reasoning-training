@@ -4,7 +4,7 @@ seed: 20260818
 target_tokens: 2097152000
 min_tokens_per_example: 64
 max_tokens_per_example: 16384
-deduplication: normalized_user_prompt_sha256
+deduplication: language_scoped_normalized_user_prompt_sha256
 
 model:
   repo_id: birgermoell/oellm-9b-256k-sft
@@ -20,8 +20,31 @@ model:
     pad_token: <pad>
 
 sources:
+  - id: reasoning-traces-multilingual-v0.2-pilot
+    role: multilingual_math_coverage
+    selection: all_once
+    language: from_row
+    language_field: language
+    adapter: accepted_messages
+    require_reasoning_trace: true
+    expected_selected_rows: 3351
+    expected_selected_tokens: 15725624
+    expected_languages: 37
+    expected_filter_reasons:
+      ok: 3351
+      too_long: 74
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/reasoning-traces-multilingual
+      revision: 031163d3a8876682a395cc65abf924b1edc2fcd9
+      split: train
+      files: data/train-*.parquet
+      expected_rows: 3425
+    license: CC-BY-4.0
+
   - id: dolci-think-32b-decontaminated
     role: broad_reasoning
+    selection: token_weighted
     token_share: 0.20
     language: en
     adapter: messages
@@ -36,6 +59,7 @@ sources:
 
   - id: dolci-think-7b-decontaminated
     role: broad_reasoning
+    selection: token_weighted
     token_share: 0.15
     language: en
     adapter: messages
@@ -50,6 +74,7 @@ sources:
 
   - id: nemotron-v2-math-decontaminated
     role: math_reasoning
+    selection: token_weighted
     token_share: 0.10
     language: en
     adapter: messages
@@ -64,6 +89,7 @@ sources:
 
   - id: nemotron-v2-code-decontaminated
     role: code_reasoning
+    selection: token_weighted
     token_share: 0.08
     language: en
     adapter: messages
@@ -78,6 +104,7 @@ sources:
 
   - id: nemotron-v2-stem-decontaminated
     role: stem_reasoning
+    selection: token_weighted
     token_share: 0.07
     language: en
     adapter: messages
@@ -92,6 +119,7 @@ sources:
 
   - id: nemotron-v2-de-decontaminated
     role: multilingual_reasoning
+    selection: token_weighted
     token_share: 0.05
     language: de
     adapter: messages
@@ -106,6 +134,7 @@ sources:
 
   - id: nemotron-v2-fr-decontaminated
     role: multilingual_reasoning
+    selection: token_weighted
     token_share: 0.05
     language: fr
     adapter: messages
@@ -120,6 +149,7 @@ sources:
 
   - id: nemotron-v2-es-decontaminated
     role: multilingual_reasoning
+    selection: token_weighted
     token_share: 0.05
     language: es
     adapter: messages
@@ -134,6 +164,7 @@ sources:
 
   - id: nemotron-v2-it-decontaminated
     role: multilingual_reasoning
+    selection: token_weighted
     token_share: 0.05
     language: it
     adapter: messages
@@ -148,6 +179,7 @@ sources:
 
   - id: openr1-math-220k-verified
     role: verified_math_reasoning
+    selection: token_weighted
     token_share: 0.05
     language: en
     adapter: openr1_verified
@@ -162,6 +194,7 @@ sources:
 
   - id: exact-sft-replay
     role: capability_replay
+    selection: token_weighted
     token_share: 0.15
     language: multilingual
     adapter: messages

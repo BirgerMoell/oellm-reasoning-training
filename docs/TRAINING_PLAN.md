@@ -16,7 +16,8 @@ dedicated reasoning continuation, not a reason to repeat general SFT from the ba
 ## What this stage changes
 
 - increase exposure to complete, high-quality reasoning traces in math, code, and STEM;
-- explicitly teach reasoning in German, French, Spanish, and Italian;
+- consume every 16K-eligible accepted v0.2 pilot translation once across 37 non-English languages, then
+  provide additional high-volume reasoning in German, French, Spanish, and Italian;
 - retain 15% of the exact prior SFT data to reduce instruction/language forgetting;
 - train only assistant tokens while preserving the original user/assistant serialization;
 - increase training sequence length from 4K to 16K so long reasoning traces keep their final answers;
@@ -28,10 +29,11 @@ hard-to-interpret job.
 
 ## Why this mixture
 
-The core sources are public, immutable, and decontaminated against MATH-500, AIME, AMC, JEEBench, GPQA,
-LiveCodeBench, HumanEval, MBPP, IFEval, AlpacaEval, and Arena-Hard. Dolci contributes breadth; Nemotron
-contributes controllable domain and language splits; OpenR1 contributes verifier-backed math; exact SFT
-replay protects capabilities the checkpoint already has.
+The core sources are public and immutable. The large Dolci and Nemotron sources are decontaminated against
+MATH-500, AIME, AMC, JEEBench, GPQA, LiveCodeBench, HumanEval, MBPP, IFEval, AlpacaEval, and Arena-Hard.
+Dolci contributes breadth; Nemotron contributes controllable domain and language splits; OpenR1 contributes
+verifier-backed math; exact SFT replay protects capabilities the checkpoint already has. The multilingual
+v0.2 pilot contributes a small 37-language coverage floor and is not treated as volume data.
 
 The 2,097,152,000-token budget matches 2,000 fully packed updates at:
 
@@ -49,14 +51,17 @@ For each source, in recipe order:
 1. Resolve the exact local snapshot and compare its recorded revision with the recipe.
 2. Normalize to structured `messages`; no source-specific flattened template survives.
 3. Require at least one user and one assistant message with non-empty text.
-4. Apply source-specific correctness checks. OpenR1 must have a positive verifier and a complete trace.
+4. Apply source-specific correctness checks. Pilot translations must have `quality.accepted == true`;
+   OpenR1 must have a positive verifier and a complete trace.
 5. Render with the starting tokenizer and assistant-mask template.
 6. Reject examples shorter than 64 tokens or longer than 16,384 tokens. Never truncate away an answer.
-7. Compute the normalized first-user-prompt SHA-256 and deduplicate globally. Higher-priority sources in
-   the recipe win a duplicate.
-8. Deterministically shuffle with seed `20260818`, select until the slice token quota is met, then combine
-   and shuffle all selected slices.
-9. Write `train.parquet` plus `manifest.json` with source revisions, input files, selected row/token counts,
+7. Compute the language-scoped normalized first-user-prompt SHA-256 and deduplicate globally. This keeps
+   parallel translations while removing same-language duplicates. Higher-priority sources win a duplicate.
+8. Select all 3,351 valid 16K-eligible multilingual-pilot rows once and record the 74 overlength rows as
+   exclusions. Subtract its 15,725,624 rendered tokens from the 2.097B target, then deterministically
+   allocate the remaining 2,081,426,376 tokens by weighted source quotas with seed `20260818`.
+9. Combine and deterministically shuffle all selected slices.
+10. Write `train.parquet` plus `manifest.json` with source revisions, input files, selected row/token counts,
    filter counts, output SHA-256, tokenizer revision, recipe SHA-256, and build time.
 
 The manifest is the identity of the dataset. A rerun that produces a different manifest is a new artifact,
@@ -76,7 +81,9 @@ relative gates in [`EVALUATION.md`](EVALUATION.md).
 Run `stage_hf.py` on a login node, then `build_data_lumi.sbatch` on CPU resources. The result must pass
 `validate_run.py` before any GPU submission. The validation checks:
 
-- all token shares sum to 1.0 and selected shares are within 0.25 percentage points;
+- weighted token shares sum to 1.0 and selected weighted shares are within 0.25 percentage points;
+- the multilingual pilot contributes exactly 3,351 rows spanning exactly 37 languages and records exactly
+  74 `too_long` exclusions;
 - model revision and architecture invariants match;
 - every record has valid alternating conversational roles and an assistant target;
 - no complete conversation exceeds 16,384 rendered tokens;
