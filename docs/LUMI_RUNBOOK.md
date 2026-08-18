@@ -144,6 +144,12 @@ refuses a resume if no production output exists. Based on the validated 64-GCD s
 roughly 10–12 hours and 650–800 GCD-hours, including eight full-state checkpoint saves. The measured
 full-state size is 136 GiB per checkpoint; verify at least 1.2 TiB of free project storage before submitting.
 
+The time estimate uses steady-state measurements rather than the ten-step Trainer average. On the
+successful 64-GCD FSDP comparison run, steps 2–10 processed about 59k–63k global tokens/s (roughly
+17 seconds per update). The reported 427-second ten-step runtime included about 251 seconds for the final
+full-state save. At production scale this projects to about 9.5 hours of updates plus roughly 0.6 hours for
+eight saves, leaving several hours of margin in the 14-hour allocation.
+
 Record the job ID immediately in `$OELLM_RUN_ROOT/runs/<run-id>/run.yaml`. Watch the first 20 steps for
 finite, generally decreasing loss and similar throughput on all nodes.
 
