@@ -44,7 +44,25 @@ Expected network materialization is large (Dolci and multilingual Nemotron conta
 Use `--source <id>` to stage one source at a time. The exact SFT replay remains at its existing project path
 and is never copied unless the run needs an immutable local replica.
 
-## 3. Build the mixture
+## 3. Run the sampled integration sanity gate
+
+```bash
+SANITY_DATA_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
+  slurm/build_data_sanity_lumi.sbatch | awk '{print $NF}')
+echo "$SANITY_DATA_JOB"
+
+# Submit only after the data job completed and validated its manifest.
+SANITY_GPU_JOB=$(sbatch --nodes=1 --gpus-per-node=8 --time=0-02:00:00 \
+  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/sanity.yaml \
+  slurm/train_lumi.sbatch | awk '{print $NF}')
+echo "$SANITY_GPU_JOB"
+```
+
+This builds only 4,194,304 rendered tokens from at most 2,000 raw rows per configured slice, then runs
+five packed 4K updates. Require finite loss on all ranks and a reloadable checkpoint. Never release or
+resume production from `checkpoints/reasoning-sanity`.
+
+## 4. Build the mixture
 
 ```bash
 BUILD_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
@@ -68,13 +86,13 @@ python3 scripts/validate_run.py --root "$OELLM_RUN_ROOT" \
   --config configs/data/reasoning-v1.yaml
 ```
 
-## 4. Baseline evaluation
+## 5. Baseline evaluation
 
 Materialize or link the baseline to `$OELLM_RUN_ROOT/models/oellm-9b-256k-sft`. Run the benchmark harness
 with output root `$OELLM_RUN_ROOT/eval/baseline-08359ad/`. Keep raw generation JSONL, not only aggregate
 scores. The detailed matrix is in `docs/EVALUATION.md`.
 
-## 5. Smoke
+## 6. Full-artifact smoke
 
 ```bash
 SMOKE_JOB=$(sbatch --nodes=1 --gpus-per-node=8 --time=0-02:00:00 \
@@ -86,7 +104,7 @@ echo "$SMOKE_JOB"
 Accept only after checking finite loss, absence of packing/template warnings, checkpoint contents, and
 the model invariant report. `COMPLETED` in Slurm is necessary but not sufficient.
 
-## 6. Production
+## 7. Production
 
 ```bash
 PROD_JOB=$(sbatch --nodes=8 --gpus-per-node=8 --time=1-12:00:00 \
@@ -107,7 +125,7 @@ tail -f "logs/${PROD_JOB}.out"
 tail -f "logs/${PROD_JOB}.err"
 ```
 
-## 7. Recovery
+## 8. Recovery
 
 Production saves full trainer state every 250 steps. Set `RESUME_FROM_CHECKPOINT=1` to let Transformers
 find the newest `checkpoint-*`, or pass an explicit checkpoint directory:
@@ -121,7 +139,7 @@ sbatch --nodes=8 --gpus-per-node=8 --time=1-12:00:00 \
 Before resuming, verify that the checkpoint contains model, optimizer, scheduler, RNG, and trainer state.
 If optimizer state is incomplete, treat it as a warm start with a new run ID and document the discontinuity.
 
-## 8. Evaluate and export
+## 9. Evaluate and export
 
 Evaluate each candidate checkpoint from a separate batch job. Do not run long-context evaluation inside the
 training allocation. When a checkpoint passes every gate, export it into

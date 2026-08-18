@@ -355,11 +355,18 @@ def main() -> None:
         dataset = load_dataset(
             "parquet", data_files={"train": [str(path) for path in files]}, split="train"
         )
+        input_rows = len(dataset)
         expected_rows = source["input"].get("expected_rows")
-        if expected_rows is not None and len(dataset) != int(expected_rows):
+        if expected_rows is not None and input_rows != int(expected_rows):
             raise ValueError(
-                f"row mismatch for {source['id']}: {len(dataset):,} != {int(expected_rows):,}"
+                f"row mismatch for {source['id']}: {input_rows:,} != {int(expected_rows):,}"
             )
+        max_raw_rows = source.get("max_raw_rows")
+        if max_raw_rows is not None:
+            max_raw_rows = int(max_raw_rows)
+            if max_raw_rows <= 0:
+                raise ValueError(f"max_raw_rows must be positive for {source['id']}")
+            dataset = dataset.select(range(min(max_raw_rows, input_rows)))
         raw_rows = len(dataset)
         normalized, reasons = normalize_dataset(
             dataset,
@@ -424,6 +431,7 @@ def main() -> None:
             "selection": source["selection"],
             "requested_token_share": source.get("token_share"),
             "token_quota": quota,
+            "input_rows": input_rows,
             "raw_rows": raw_rows,
             "valid_rows": len(normalized),
             "filter_reasons": dict(sorted(reasons.items())),

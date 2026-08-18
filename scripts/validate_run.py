@@ -90,6 +90,7 @@ def validate_data(root: Path, recipe: dict, full: bool) -> None:
     weighted_ids = {source["id"] for source in weighted_sources}
     weighted_total = sum(source_tokens[source_id] for source_id in weighted_ids)
     recipe_shares = {source["id"]: float(source["token_share"]) for source in weighted_sources}
+    share_tolerance = float(recipe.get("token_share_tolerance", 0.0025))
     manifest_by_id = {item["id"]: item for item in manifest["sources"]}
     for source in recipe["sources"]:
         source_id = source["id"]
@@ -109,7 +110,7 @@ def validate_data(root: Path, recipe: dict, full: bool) -> None:
                     fail(f"{source_id} filter count for {reason} differs from the recipe")
             continue
         actual = source_tokens[source_id] / weighted_total
-        if abs(actual - recipe_shares[source_id]) > 0.0025:
+        if abs(actual - recipe_shares[source_id]) > share_tolerance:
             fail(f"{source_id} weighted token share {actual:.4f} is outside tolerance")
 
     columns = set(parquet.schema_arrow.names)

@@ -76,6 +76,18 @@ versions, and few-shot templates must be reused for the candidate.
 This prevents a “win” produced by a changed harness. It also supplies exact baseline values for the
 relative gates in [`EVALUATION.md`](EVALUATION.md).
 
+## Integration sanity gate
+
+Before materializing the 2.097B-token artifact, use `reasoning-sanity`: it reads the same pinned inputs as
+production but processes at most 2,000 raw rows per slice and budgets only 4,194,304 rendered tokens. It is
+not a statistical training mixture and its checkpoint is never publishable. Its purpose is to prove all 12
+source globs, three adapters, tokenizer/template path, language-scoped deduplication, manifest validation,
+eight-rank FSDP initialization, assistant masking, five 4K updates, and checkpoint saving.
+
+The sanity gate passes only when `build_data_sanity_lumi.sbatch` validates the artifact and the one-node
+`configs/train/sanity.yaml` run writes a reloadable checkpoint with finite loss on all ranks. Do not start
+the full data build until both results pass.
+
 ## Stage 1 — data materialization
 
 Run `stage_hf.py` on a login node, then `build_data_lumi.sbatch` on CPU resources. The result must pass

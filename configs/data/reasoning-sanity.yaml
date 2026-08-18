@@ -1,0 +1,214 @@
+version: reasoning-sanity
+description: Small path-validation mix sampled from every reasoning-v1 source.
+seed: 20260818
+target_tokens: 4194304
+token_share_tolerance: 0.02
+min_tokens_per_example: 64
+max_tokens_per_example: 4096
+deduplication: language_scoped_normalized_user_prompt_sha256
+
+model:
+  repo_id: birgermoell/oellm-9b-256k-sft
+  revision: 08359ad61333263c067edaf290067fea5b103d34
+  local_name: oellm-9b-256k-sft
+  expected:
+    architecture: Qwen3ForCausalLM
+    model_type: qwen3
+    max_position_embeddings: 262144
+    rope_theta: 64000000
+    vocab_size: 263168
+    eos_token: <end_of_turn>
+    pad_token: <pad>
+
+sources:
+  - id: reasoning-traces-multilingual-v0.2-pilot
+    role: multilingual_math_coverage
+    selection: token_weighted
+    token_share: 0.04
+    max_raw_rows: 2000
+    language: from_row
+    language_field: language
+    adapter: accepted_messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/reasoning-traces-multilingual
+      revision: 031163d3a8876682a395cc65abf924b1edc2fcd9
+      split: train
+      files: data/train-*.parquet
+      expected_rows: 3425
+    license: CC-BY-4.0
+
+  - id: dolci-think-32b-decontaminated
+    role: broad_reasoning
+    selection: token_weighted
+    token_share: 0.16
+    max_raw_rows: 2000
+    language: en
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Dolci-Think-SFT-32B-decontaminated
+      revision: 286dde7da11a0fdc9d60a639d1089a2007d94f29
+      split: train
+      files: data/train-*.parquet
+    license: ODC-By-1.0
+
+  - id: dolci-think-7b-decontaminated
+    role: broad_reasoning
+    selection: token_weighted
+    token_share: 0.12
+    max_raw_rows: 2000
+    language: en
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Dolci-Think-SFT-7B-decontaminated
+      revision: d6550429f7a59a28e8f0881ab51448a94fe771ca
+      split: train
+      files: data/train-*.parquet
+    license: composite-see-upstream
+
+  - id: nemotron-v2-math-decontaminated
+    role: math_reasoning
+    selection: token_weighted
+    token_share: 0.08
+    max_raw_rows: 2000
+    language: en
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: math
+      files: data/math-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-code-decontaminated
+    role: code_reasoning
+    selection: token_weighted
+    token_share: 0.08
+    max_raw_rows: 2000
+    language: en
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: code
+      files: data/code-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-stem-decontaminated
+    role: stem_reasoning
+    selection: token_weighted
+    token_share: 0.08
+    max_raw_rows: 2000
+    language: en
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: stem
+      files: data/stem-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-de-decontaminated
+    role: multilingual_reasoning
+    selection: token_weighted
+    token_share: 0.06
+    max_raw_rows: 2000
+    language: de
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: multilingual_de
+      files: data/multilingual_de-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-fr-decontaminated
+    role: multilingual_reasoning
+    selection: token_weighted
+    token_share: 0.06
+    max_raw_rows: 2000
+    language: fr
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: multilingual_fr
+      files: data/multilingual_fr-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-es-decontaminated
+    role: multilingual_reasoning
+    selection: token_weighted
+    token_share: 0.06
+    max_raw_rows: 2000
+    language: es
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: multilingual_es
+      files: data/multilingual_es-*.parquet
+    license: CC-BY-4.0
+
+  - id: nemotron-v2-it-decontaminated
+    role: multilingual_reasoning
+    selection: token_weighted
+    token_share: 0.06
+    max_raw_rows: 2000
+    language: it
+    adapter: messages
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: openeurollm/Nemotron-Post-Training-Dataset-v2-decontaminated
+      revision: 789a044d6f305996098ef340b4264cfc022ed12a
+      split: multilingual_it
+      files: data/multilingual_it-*.parquet
+    license: CC-BY-4.0
+
+  - id: openr1-math-220k-verified
+    role: verified_math_reasoning
+    selection: token_weighted
+    token_share: 0.08
+    max_raw_rows: 2000
+    language: en
+    adapter: openr1_verified
+    require_reasoning_trace: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: open-r1/OpenR1-Math-220k
+      revision: e4e141ec9dea9f8326f4d347be56105859b2bd68
+      split: train
+      files: data/train-*.parquet
+    license: Apache-2.0
+
+  - id: exact-sft-replay
+    role: capability_replay
+    selection: token_weighted
+    token_share: 0.12
+    max_raw_rows: 2000
+    language: multilingual
+    adapter: messages
+    require_reasoning_trace: false
+    input:
+      kind: local_parquet
+      path: /scratch/project_465002530/users/bmoell/posttrain-data/qwen35-9b-sft-parquet/train.parquet
+      expected_rows: 1082196
+    license: composite-see-source-model-card

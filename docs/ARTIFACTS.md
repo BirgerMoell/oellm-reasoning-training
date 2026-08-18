@@ -15,6 +15,7 @@ $OELLM_RUN_ROOT/
     train.parquet
     manifest.json
     dedup.sqlite3
+  data/reasoning-sanity/       # disposable sampled integration artifact
   checkpoints/
     reasoning-v1-smoke/
     reasoning-v1/checkpoint-000250/

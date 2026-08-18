@@ -11,7 +11,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_CONFIG = ROOT / "configs" / "data" / "reasoning-v1.yaml"
+SANITY_DATA_CONFIG = ROOT / "configs" / "data" / "reasoning-sanity.yaml"
 SMOKE_CONFIG = ROOT / "configs" / "train" / "smoke.yaml"
+SANITY_TRAIN_CONFIG = ROOT / "configs" / "train" / "sanity.yaml"
 TRAIN_CONFIG = ROOT / "configs" / "train" / "reasoning-v1.yaml"
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
@@ -23,8 +25,10 @@ def load(path: Path) -> dict:
 def validate() -> list[str]:
     errors: list[str] = []
     data = load(DATA_CONFIG)
+    sanity_data = load(SANITY_DATA_CONFIG)
     train = load(TRAIN_CONFIG)
     smoke = load(SMOKE_CONFIG)
+    sanity_train = load(SANITY_TRAIN_CONFIG)
     sources = data["sources"]
 
     weighted = [source for source in sources if source.get("selection") == "token_weighted"]
@@ -59,6 +63,22 @@ def validate() -> list[str]:
     if any(selection == "all_once" for selection in selections[first_weighted:]):
         errors.append("consume-once sources must appear before token-weighted sources")
 
+    sanity_sources = sanity_data["sources"]
+    sanity_shares = [float(source["token_share"]) for source in sanity_sources]
+    if abs(sum(sanity_shares) - 1.0) > 1e-9:
+        errors.append(f"sanity token shares sum to {sum(sanity_shares)}, not 1.0")
+    if any(source.get("selection") != "token_weighted" for source in sanity_sources):
+        errors.append("every sanity source must be token-weighted")
+    if any(int(source.get("max_raw_rows", 0)) <= 0 for source in sanity_sources):
+        errors.append("every sanity source must define a positive max_raw_rows")
+    if [source["id"] for source in sanity_sources] != ids:
+        errors.append("sanity source IDs/order differ from production")
+    production_inputs = {source["id"]: source["input"] for source in sources}
+    if any(source["input"] != production_inputs.get(source["id"]) for source in sanity_sources):
+        errors.append("sanity inputs/revisions differ from production")
+    if sanity_data["model"] != data["model"]:
+        errors.append("sanity model differs from production")
+
     if not COMMIT.match(data["model"]["revision"]):
         errors.append("model revision is not a 40-character commit")
     for source in sources:
@@ -85,6 +105,8 @@ def validate() -> list[str]:
         errors.append("model architecture invariants changed")
     if train["max_length"] != data["max_tokens_per_example"]:
         errors.append("training max_length does not match data max tokens")
+    if sanity_train["max_length"] != sanity_data["max_tokens_per_example"]:
+        errors.append("sanity training max_length does not match sanity data max tokens")
     if train["attn_implementation"] != "flash_attention_2" or not train["packing"]:
         errors.append("production packing requires flash_attention_2")
     if not train["assistant_only_loss"] or not smoke["assistant_only_loss"]:
@@ -96,6 +118,9 @@ def validate() -> list[str]:
     packed_budget = train["max_steps"] * 64 * train["max_length"]
     if packed_budget != data["target_tokens"]:
         errors.append(f"packed training budget {packed_budget} != data target {data['target_tokens']}")
+    sanity_packed_budget = sanity_train["max_steps"] * 8 * sanity_train["max_length"]
+    if sanity_packed_budget > sanity_data["target_tokens"]:
+        errors.append("sanity data target is smaller than its packed training budget")
     if not (ROOT / "templates" / "oellm_gemma_assistant_mask.jinja").is_file():
         errors.append("assistant-mask template is missing")
     return errors
