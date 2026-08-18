@@ -145,6 +145,13 @@ def validate() -> list[str]:
         errors.append("assistant-only loss must be enabled")
     if train["save_only_model"]:
         errors.append("production checkpoints must include optimizer state")
+    if train["save_steps"] != 250:
+        errors.append("production save interval must remain 250 steps")
+    required_checkpoint_count = train["max_steps"] // train["save_steps"]
+    if train["save_total_limit"] < required_checkpoint_count:
+        errors.append(
+            "production checkpoint retention would delete required evaluation/recovery checkpoints"
+        )
     if train["max_steps"] != 2000:
         errors.append("production max_steps must match the v1 token budget")
     packed_budget = train["max_steps"] * 64 * train["max_length"]
@@ -161,6 +168,18 @@ def validate() -> list[str]:
     ):
         if required not in sanity_wrapper:
             errors.append(f"sanity Slurm wrapper missing: {required}")
+    production_wrapper = (ROOT / "slurm" / "train_production_lumi.sbatch").read_text(
+        encoding="utf-8"
+    )
+    for required in (
+        "#SBATCH --nodes=8",
+        "#SBATCH --gpus-per-node=8",
+        "#SBATCH --time=0-14:00:00",
+        "export TRAIN_CONFIG=configs/train/reasoning-v1.yaml",
+        "exec bash slurm/train_lumi.sbatch",
+    ):
+        if required not in production_wrapper:
+            errors.append(f"production Slurm wrapper missing: {required}")
     if not (ROOT / "templates" / "oellm_gemma_assistant_mask.jinja").is_file():
         errors.append("assistant-mask template is missing")
     return errors

@@ -18,7 +18,7 @@ $OELLM_RUN_ROOT/
   data/reasoning-sanity/       # disposable sampled integration artifact
   checkpoints/
     reasoning-v1-smoke/
-    reasoning-v1/checkpoint-000250/
+    reasoning-v1/checkpoint-{250,500,750,1000,1250,1500,1750,2000}/
   eval/
     baseline-08359ad/
     reasoning-v1-step-0500/

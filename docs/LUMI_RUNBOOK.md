@@ -121,11 +121,15 @@ the model invariant report. `COMPLETED` in Slurm is necessary but not sufficient
 ## 7. Production
 
 ```bash
-PROD_JOB=$(sbatch --nodes=8 --gpus-per-node=8 --time=1-12:00:00 \
-  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/reasoning-v1.yaml \
-  slurm/train_lumi.sbatch | awk '{print $NF}')
+PROD_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
+  slurm/train_production_lumi.sbatch | awk '{print $NF}')
 echo "$PROD_JOB"
 ```
+
+The production wrapper fixes the tested 8-node / 64-GCD topology, 14-hour wall time, and committed
+`reasoning-v1` recipe. The common launcher refuses a fresh run if the output directory is non-empty and
+refuses a resume if no production output exists. Based on the validated 64-GCD sanity throughput, expect
+roughly 10–12 hours and 650–800 GCD-hours, including eight full-state checkpoint saves.
 
 Record the job ID immediately in `$OELLM_RUN_ROOT/runs/<run-id>/run.yaml`. Watch the first 20 steps for
 finite, generally decreasing loss and similar throughput on all nodes.
@@ -145,9 +149,8 @@ Production saves full trainer state every 250 steps. Set `RESUME_FROM_CHECKPOINT
 find the newest `checkpoint-*`, or pass an explicit checkpoint directory:
 
 ```bash
-sbatch --nodes=8 --gpus-per-node=8 --time=1-12:00:00 \
-  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/reasoning-v1.yaml,RESUME_FROM_CHECKPOINT=1 \
-  slurm/train_lumi.sbatch
+sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",RESUME_FROM_CHECKPOINT=1 \
+  slurm/train_production_lumi.sbatch
 ```
 
 Before resuming, verify that the checkpoint contains model, optimizer, scheduler, RNG, and trainer state.

@@ -19,6 +19,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Language allocation | First include all 3,351 eligible pilot translations across 37 languages once; allocate the remaining tokens as 65% English reasoning, 20% `de/fr/es/it` reasoning, and 15% multilingual/general replay |
 | Sequence length | 16,384 tokens; records that do not fit are rejected rather than losing the final answer |
 | Production allocation | 8 LUMI-G nodes / 64 MI250X GCDs, global sequence batch 64, 2,000 updates |
+| Measured budget | approximately 10–12 hours and 650–800 GCD-hours, including eight resumable checkpoints |
 | Optimizer | AdamW, peak LR `3e-6`, cosine decay, 3% warmup, bf16, gradient checkpointing |
 | Architecture invariants | 262,144 max positions, RoPE theta 64,000,000, vocab 263,168, Gemma-style turn markers |
 | LUMI artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |
@@ -75,9 +76,8 @@ sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/
   slurm/train_lumi.sbatch
 
 # After the smoke log has finite loss and a valid saved model:
-sbatch --nodes=8 --gpus-per-node=8 --time=1-12:00:00 \
-  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/reasoning-v1.yaml \
-  slurm/train_lumi.sbatch
+sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
+  slurm/train_production_lumi.sbatch
 ```
 
 See [`docs/LUMI_RUNBOOK.md`](docs/LUMI_RUNBOOK.md) for the cold-start procedure, monitoring,
@@ -96,7 +96,8 @@ and one-node smoke gate both pass.
 4. **Budget by tokens.** Consume the fixed pilot floor, allocate the remaining tokens by source weight,
    and write one shuffled Parquet plus a checksummed manifest.
 5. **Smoke.** Run ten 8K updates on the full artifact; verify finite loss, assistant masking, and architecture.
-6. **Train.** Run 2,000 packed 16K updates on eight nodes with resumable checkpoints.
+6. **Train.** Run 2,000 packed 16K updates on eight nodes, retaining all eight resumable
+   250-step checkpoints so evaluation milestones are not deleted.
 7. **Evaluate.** Compare the SFT baseline and reasoning candidate on the same prompts and decoding.
 8. **Publish only an accepted checkpoint.** Preserve the input revision, data manifest, config, Slurm
    job IDs, logs, metrics, and output SHA in the run record.
@@ -112,6 +113,7 @@ and one-node smoke gate both pass.
 | [`scripts/build_mix.py`](scripts/build_mix.py) | normalize, validate, deduplicate, token-budget, and materialize |
 | [`scripts/train_sft.py`](scripts/train_sft.py) | text-only TRL/FSDP training entry point |
 | [`scripts/validate_run.py`](scripts/validate_run.py) | fail-closed model, manifest, and data checks |
+| [`scripts/write_run_record.py`](scripts/write_run_record.py) | started/completed YAML provenance for every training attempt |
 | [`slurm/`](slurm/) | LUMI data and GPU jobs |
 | [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md) | stage rationale and detailed choices |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | benchmark matrix and acceptance gates |
