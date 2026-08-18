@@ -38,6 +38,9 @@ def safe_name(repo_id: str) -> str:
 
 
 def git_sha() -> str | None:
+    pinned = os.environ.get("REPOSITORY_GIT_SHA", "").strip()
+    if pinned:
+        return pinned
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL

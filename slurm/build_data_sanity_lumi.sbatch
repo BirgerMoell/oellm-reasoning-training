@@ -23,12 +23,23 @@ BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 mkdir -p logs "$OELLM_RUN_ROOT/cache/huggingface"
 echo "Building sanity artifact from $DATA_CONFIG into $OELLM_RUN_ROOT"
 
+RUN_DIR=$OELLM_RUN_ROOT/runs/$SLURM_JOB_ID
+mkdir -p "$RUN_DIR"
+cp "$DATA_CONFIG" "$RUN_DIR/resolved-data-config.yaml"
+git rev-parse HEAD > "$RUN_DIR/repository-git-sha.txt"
+git status --porcelain=v1 > "$RUN_DIR/repository-status.txt"
+scontrol show job -dd "$SLURM_JOB_ID" > "$RUN_DIR/slurm-job.txt"
+sha256sum "$RUN_DIR/resolved-data-config.yaml" > "$RUN_DIR/provenance-sha256.txt"
+export REPOSITORY_GIT_SHA
+REPOSITORY_GIT_SHA=$(git rev-parse HEAD)
+
 singularity exec -B "$BIND" "$CONTAINER" bash -lc "
   set -euo pipefail
   export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
   export HF_HOME=$OELLM_RUN_ROOT/cache/huggingface
   export HF_DATASETS_CACHE=$OELLM_RUN_ROOT/cache/huggingface/datasets
   export HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+  export REPOSITORY_GIT_SHA=$REPOSITORY_GIT_SHA
   cd $SLURM_SUBMIT_DIR
   python3 scripts/build_mix.py --config $DATA_CONFIG --root $OELLM_RUN_ROOT --num-proc $SLURM_CPUS_PER_TASK
   python3 scripts/validate_run.py --root $OELLM_RUN_ROOT --config $DATA_CONFIG --full

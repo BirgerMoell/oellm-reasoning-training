@@ -64,6 +64,10 @@ The builder writes:
 - seed, builder Git SHA when available, build host/time;
 - output row count, token count, and SHA-256.
 
+The data Slurm wrapper captures the repository SHA and dirty state before launching the container and
+passes that immutable SHA into the builder. Consequently, a later checkout change cannot alter the SHA
+reported by a long-running build's manifest.
+
 Copy the small manifest into the eventual model repository. It lets a reader locate large data without
 placing the data in Git.
 
