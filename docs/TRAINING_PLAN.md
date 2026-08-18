@@ -78,8 +78,9 @@ relative gates in [`EVALUATION.md`](EVALUATION.md).
 
 ## Integration sanity gate
 
-Before materializing the 2.097B-token artifact, use `reasoning-sanity`: it reads the same pinned inputs as
-production but processes at most 5,000 raw rows per slice and budgets only 16,777,216 rendered tokens. It is
+Before materializing the 2.097B-token artifact, use `reasoning-sanity`: it resolves the same pinned input
+globs as production but loads one shard and at most 5,000 raw rows per slice, budgeting only 16,777,216
+rendered tokens. It is
 not a statistical training mixture and its checkpoint is never publishable. Its purpose is to prove all 12
 source globs, three adapters, tokenizer/template path, language-scoped deduplication, manifest validation,
 64-rank cross-node FSDP initialization, assistant masking, ten 16K updates, and checkpoint saving.

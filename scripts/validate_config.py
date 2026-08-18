@@ -73,6 +73,8 @@ def validate() -> list[str]:
         errors.append("every sanity source must define a positive max_raw_rows")
     if any(int(source["max_raw_rows"]) != 5000 for source in sanity_sources):
         errors.append("every sanity source must use the reviewed 5,000-row cap")
+    if any(int(source.get("max_input_files", 0)) != 1 for source in sanity_sources):
+        errors.append("every sanity source must use exactly one resolved input file")
     if [source["id"] for source in sanity_sources] != ids:
         errors.append("sanity source IDs/order differ from production")
     production_inputs = {source["id"]: source["input"] for source in sources}

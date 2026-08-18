@@ -86,9 +86,9 @@ and one-node smoke gate both pass.
 ## Pipeline
 
 1. **Stage immutable inputs.** Download the pinned model and dataset snapshots on a login node.
-2. **Sanity.** Sample up to 5,000 rows from every configured slice, build 16.78M tokens, and run ten packed
-   16K updates on the same 8-node / 64-rank launcher as production. This exercises every adapter, path,
-   tokenizer, mask, inter-node FSDP rank, and save path.
+2. **Sanity.** Resolve every production glob, load one pinned shard and at most 5,000 rows per slice, build
+   16.78M tokens, and run ten packed 16K updates on the same 8-node / 64-rank launcher as production. This
+   exercises every adapter, path, tokenizer, mask, inter-node FSDP rank, and save path.
 3. **Normalize and filter.** Keep complete user/assistant conversations, require accepted pilot rows and
    verified OpenR1 solutions, reject malformed or overlength traces, and deduplicate by language-scoped
    normalized prompt hash.

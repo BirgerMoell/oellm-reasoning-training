@@ -367,8 +367,19 @@ def main() -> None:
     per_source_quotas: dict[str, int] | None = None
 
     for source_index, source in enumerate(config["sources"]):
-        files = resolve_files(source, args.root)
-        print(f"[load] {source['id']} from {len(files)} file(s)", flush=True)
+        available_files = resolve_files(source, args.root)
+        max_input_files = source.get("max_input_files")
+        if max_input_files is not None:
+            max_input_files = int(max_input_files)
+            if max_input_files <= 0:
+                raise ValueError(f"max_input_files must be positive for {source['id']}")
+            files = available_files[:max_input_files]
+        else:
+            files = available_files
+        print(
+            f"[load] {source['id']} from {len(files)}/{len(available_files)} file(s)",
+            flush=True,
+        )
         dataset = load_dataset(
             "parquet", data_files={"train": [str(path) for path in files]}, split="train"
         )
@@ -455,6 +466,7 @@ def main() -> None:
             "think_tag_rows": think_rows,
             "language_counts": dict(sorted(language_counts.items())),
             "input": source["input"],
+            "available_input_files": len(available_files),
             "resolved_files": [
                 {"path": str(path), "bytes": path.stat().st_size} for path in files
             ],

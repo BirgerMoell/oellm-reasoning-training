@@ -57,10 +57,11 @@ SANITY_GPU_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
 echo "$SANITY_GPU_JOB"
 ```
 
-This builds only 16,777,216 rendered tokens from at most 5,000 raw rows per configured slice, then runs
-ten packed 16K updates on the production 8-node / 64-GCD topology. The wrapper executes the exact production
-launcher; only data/output paths, step count, logging, and save interval differ. Require finite loss on all
-ranks and a reloadable checkpoint. Never release or resume production from `checkpoints/reasoning-sanity`.
+This resolves every production glob but loads only its first pinned shard and at most 5,000 rows per slice,
+building 16,777,216 rendered tokens. It then runs ten packed 16K updates on the production 8-node / 64-GCD
+topology. The wrapper executes the exact production launcher; only data/output paths, step count, logging,
+and save interval differ. Require finite loss on all ranks and a reloadable checkpoint. Never release or
+resume production from `checkpoints/reasoning-sanity`.
 
 ## 4. Build the mixture
 
