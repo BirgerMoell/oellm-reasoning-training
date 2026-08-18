@@ -71,6 +71,8 @@ def validate() -> list[str]:
         errors.append("every sanity source must be token-weighted")
     if any(int(source.get("max_raw_rows", 0)) <= 0 for source in sanity_sources):
         errors.append("every sanity source must define a positive max_raw_rows")
+    if any(int(source["max_raw_rows"]) != 5000 for source in sanity_sources):
+        errors.append("every sanity source must use the reviewed 5,000-row cap")
     if [source["id"] for source in sanity_sources] != ids:
         errors.append("sanity source IDs/order differ from production")
     production_inputs = {source["id"]: source["input"] for source in sources}
@@ -107,6 +109,22 @@ def validate() -> list[str]:
         errors.append("training max_length does not match data max tokens")
     if sanity_train["max_length"] != sanity_data["max_tokens_per_example"]:
         errors.append("sanity training max_length does not match sanity data max tokens")
+    allowed_sanity_differences = {
+        "datasets",
+        "output_dir",
+        "max_steps",
+        "logging_steps",
+        "save_steps",
+        "save_total_limit",
+    }
+    production_training_core = {
+        key: value for key, value in train.items() if key not in allowed_sanity_differences
+    }
+    sanity_training_core = {
+        key: value for key, value in sanity_train.items() if key not in allowed_sanity_differences
+    }
+    if sanity_training_core != production_training_core:
+        errors.append("sanity training differs from production outside the allowed run-size fields")
     if train["attn_implementation"] != "flash_attention_2" or not train["packing"]:
         errors.append("production packing requires flash_attention_2")
     if not train["assistant_only_loss"] or not smoke["assistant_only_loss"]:
@@ -118,9 +136,17 @@ def validate() -> list[str]:
     packed_budget = train["max_steps"] * 64 * train["max_length"]
     if packed_budget != data["target_tokens"]:
         errors.append(f"packed training budget {packed_budget} != data target {data['target_tokens']}")
-    sanity_packed_budget = sanity_train["max_steps"] * 8 * sanity_train["max_length"]
+    sanity_packed_budget = sanity_train["max_steps"] * 64 * sanity_train["max_length"]
     if sanity_packed_budget > sanity_data["target_tokens"]:
         errors.append("sanity data target is smaller than its packed training budget")
+    sanity_wrapper = (ROOT / "slurm" / "train_sanity_lumi.sbatch").read_text(encoding="utf-8")
+    for required in (
+        "#SBATCH --nodes=8",
+        "#SBATCH --gpus-per-node=8",
+        "exec bash slurm/train_lumi.sbatch",
+    ):
+        if required not in sanity_wrapper:
+            errors.append(f"sanity Slurm wrapper missing: {required}")
     if not (ROOT / "templates" / "oellm_gemma_assistant_mask.jinja").is_file():
         errors.append("assistant-mask template is missing")
     return errors

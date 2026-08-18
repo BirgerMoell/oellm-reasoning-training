@@ -1,10 +1,10 @@
 version: reasoning-sanity
 description: Small path-validation mix sampled from every reasoning-v1 source.
 seed: 20260818
-target_tokens: 4194304
-token_share_tolerance: 0.02
+target_tokens: 16777216
+token_share_tolerance: 0.0025
 min_tokens_per_example: 64
-max_tokens_per_example: 4096
+max_tokens_per_example: 16384
 deduplication: language_scoped_normalized_user_prompt_sha256
 
 model:
@@ -25,7 +25,7 @@ sources:
     role: multilingual_math_coverage
     selection: token_weighted
     token_share: 0.04
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: from_row
     language_field: language
     adapter: accepted_messages
@@ -43,7 +43,7 @@ sources:
     role: broad_reasoning
     selection: token_weighted
     token_share: 0.16
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -59,7 +59,7 @@ sources:
     role: broad_reasoning
     selection: token_weighted
     token_share: 0.12
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -75,7 +75,7 @@ sources:
     role: math_reasoning
     selection: token_weighted
     token_share: 0.08
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -91,7 +91,7 @@ sources:
     role: code_reasoning
     selection: token_weighted
     token_share: 0.08
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -107,7 +107,7 @@ sources:
     role: stem_reasoning
     selection: token_weighted
     token_share: 0.08
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -123,7 +123,7 @@ sources:
     role: multilingual_reasoning
     selection: token_weighted
     token_share: 0.06
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: de
     adapter: messages
     require_reasoning_trace: true
@@ -139,7 +139,7 @@ sources:
     role: multilingual_reasoning
     selection: token_weighted
     token_share: 0.06
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: fr
     adapter: messages
     require_reasoning_trace: true
@@ -155,7 +155,7 @@ sources:
     role: multilingual_reasoning
     selection: token_weighted
     token_share: 0.06
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: es
     adapter: messages
     require_reasoning_trace: true
@@ -171,7 +171,7 @@ sources:
     role: multilingual_reasoning
     selection: token_weighted
     token_share: 0.06
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: it
     adapter: messages
     require_reasoning_trace: true
@@ -187,7 +187,7 @@ sources:
     role: verified_math_reasoning
     selection: token_weighted
     token_share: 0.08
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: en
     adapter: openr1_verified
     require_reasoning_trace: true
@@ -203,7 +203,7 @@ sources:
     role: capability_replay
     selection: token_weighted
     token_share: 0.12
-    max_raw_rows: 2000
+    max_raw_rows: 5000
     language: multilingual
     adapter: messages
     require_reasoning_trace: false

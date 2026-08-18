@@ -79,14 +79,15 @@ relative gates in [`EVALUATION.md`](EVALUATION.md).
 ## Integration sanity gate
 
 Before materializing the 2.097B-token artifact, use `reasoning-sanity`: it reads the same pinned inputs as
-production but processes at most 2,000 raw rows per slice and budgets only 4,194,304 rendered tokens. It is
+production but processes at most 5,000 raw rows per slice and budgets only 16,777,216 rendered tokens. It is
 not a statistical training mixture and its checkpoint is never publishable. Its purpose is to prove all 12
 source globs, three adapters, tokenizer/template path, language-scoped deduplication, manifest validation,
-eight-rank FSDP initialization, assistant masking, five 4K updates, and checkpoint saving.
+64-rank cross-node FSDP initialization, assistant masking, ten 16K updates, and checkpoint saving.
 
-The sanity gate passes only when `build_data_sanity_lumi.sbatch` validates the artifact and the one-node
-`configs/train/sanity.yaml` run writes a reloadable checkpoint with finite loss on all ranks. Do not start
-the full data build until both results pass.
+The sanity gate passes only when `build_data_sanity_lumi.sbatch` validates the artifact and the eight-node
+`configs/train/sanity.yaml` run writes a reloadable checkpoint with finite loss on all ranks. The dedicated
+Slurm wrapper requests the same eight nodes and executes the exact production launcher. Do not start the
+full data build until both results pass.
 
 ## Stage 1 — data materialization
 

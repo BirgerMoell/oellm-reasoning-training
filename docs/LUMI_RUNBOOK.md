@@ -52,15 +52,15 @@ SANITY_DATA_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
 echo "$SANITY_DATA_JOB"
 
 # Submit only after the data job completed and validated its manifest.
-SANITY_GPU_JOB=$(sbatch --nodes=1 --gpus-per-node=8 --time=0-02:00:00 \
-  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/sanity.yaml \
-  slurm/train_lumi.sbatch | awk '{print $NF}')
+SANITY_GPU_JOB=$(sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
+  slurm/train_sanity_lumi.sbatch | awk '{print $NF}')
 echo "$SANITY_GPU_JOB"
 ```
 
-This builds only 4,194,304 rendered tokens from at most 2,000 raw rows per configured slice, then runs
-five packed 4K updates. Require finite loss on all ranks and a reloadable checkpoint. Never release or
-resume production from `checkpoints/reasoning-sanity`.
+This builds only 16,777,216 rendered tokens from at most 5,000 raw rows per configured slice, then runs
+ten packed 16K updates on the production 8-node / 64-GCD topology. The wrapper executes the exact production
+launcher; only data/output paths, step count, logging, and save interval differ. Require finite loss on all
+ranks and a reloadable checkpoint. Never release or resume production from `checkpoints/reasoning-sanity`.
 
 ## 4. Build the mixture
 

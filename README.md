@@ -22,7 +22,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Optimizer | AdamW, peak LR `3e-6`, cosine decay, 3% warmup, bf16, gradient checkpointing |
 | Architecture invariants | 262,144 max positions, RoPE theta 64,000,000, vocab 263,168, Gemma-style turn markers |
 | LUMI artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |
-| First execution gate | 4.19M-token sampled data build from all 12 slices, then 5 × 4K updates on one LUMI-G node |
+| First execution gate | 16.78M-token sampled data build from all 12 slices, then 10 × 16K updates on the real 8-node / 64-GCD topology |
 | Acceptance rule | Reasoning improves while multilingual instruction, code, safety, and 256K retrieval stay within the gates in [`docs/EVALUATION.md`](docs/EVALUATION.md) |
 
 ## Reasoning-v1 data
@@ -62,11 +62,9 @@ scripts/stage_lumi.sh
 
 # First prove every data adapter/path and the complete GPU stack on sampled data.
 sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" slurm/build_data_sanity_lumi.sbatch
-sbatch --nodes=1 --gpus-per-node=8 --time=0-02:00:00 \
-  --export=ALL,GPUS_PER_NODE=8,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/sanity.yaml \
-  slurm/train_lumi.sbatch
+sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" slurm/train_sanity_lumi.sbatch
 
-# Only after the sanity data manifest and five-step checkpoint pass:
+# Only after the sanity data manifest and ten-step checkpoint pass:
 # Build the deterministic, token-budgeted parquet. Run this as a CPU/data job for the full mix.
 sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" slurm/build_data_lumi.sbatch
 
@@ -88,8 +86,9 @@ and one-node smoke gate both pass.
 ## Pipeline
 
 1. **Stage immutable inputs.** Download the pinned model and dataset snapshots on a login node.
-2. **Sanity.** Sample up to 2,000 rows from every configured slice, build 4.19M tokens, and run five packed
-   4K updates on one node. This exercises every adapter, path, tokenizer, mask, FSDP rank, and save path.
+2. **Sanity.** Sample up to 5,000 rows from every configured slice, build 16.78M tokens, and run ten packed
+   16K updates on the same 8-node / 64-rank launcher as production. This exercises every adapter, path,
+   tokenizer, mask, inter-node FSDP rank, and save path.
 3. **Normalize and filter.** Keep complete user/assistant conversations, require accepted pilot rows and
    verified OpenR1 solutions, reject malformed or overlength traces, and deduplicate by language-scoped
    normalized prompt hash.
