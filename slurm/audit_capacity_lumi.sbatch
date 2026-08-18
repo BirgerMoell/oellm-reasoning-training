@@ -11,7 +11,9 @@
 #SBATCH --error=logs/%j.err
 
 set -euo pipefail
-module purge
+
+# This job executes entirely inside the pinned container. Avoid host `module purge` here:
+# on some LUMI CPU nodes Lmod can block in Lustre metadata I/O before the audit starts.
 
 : "${OELLM_RUN_ROOT:=/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts}"
 : "${DATA_CONFIG:=configs/data/reasoning-v1.yaml}"
