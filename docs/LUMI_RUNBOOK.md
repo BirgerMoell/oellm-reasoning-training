@@ -116,7 +116,18 @@ echo "$SMOKE_JOB"
 ```
 
 Accept only after checking finite loss, absence of packing/template warnings, checkpoint contents, and
-the model invariant report. `COMPLETED` in Slurm is necessary but not sufficient.
+the model invariant report. `COMPLETED` in Slurm is necessary but not sufficient. Exhaustively stream
+every saved weight through the finiteness checker before releasing the production allocation:
+
+```bash
+SMOKE_CHECKPOINT="$OELLM_RUN_ROOT/checkpoints/reasoning-v1-smoke/checkpoint-10"
+CHECK_JOB=$(sbatch --export=ALL,CHECKPOINT="$SMOKE_CHECKPOINT",FULL_SCAN=1 \
+  slurm/check_checkpoint_lumi.sbatch | awk '{print $NF}')
+echo "$CHECK_JOB"
+```
+
+The checker uses bounded chunks, supports sharded safetensors, and exits nonzero if any NaN or infinity
+is present. Require `FULL_FINITE` and a `COMPLETED` Slurm state.
 
 ## 7. Production
 
@@ -153,7 +164,8 @@ sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",RESUME_FROM_CHECKPOINT=1 \
   slurm/train_production_lumi.sbatch
 ```
 
-Before resuming, verify that the checkpoint contains model, optimizer, scheduler, RNG, and trainer state.
+Before resuming, verify that the checkpoint contains model, optimizer, scheduler, RNG, and trainer state,
+then submit `slurm/check_checkpoint_lumi.sbatch` with `CHECKPOINT` set to that directory.
 If optimizer state is incomplete, treat it as a warm start with a new run ID and document the discontinuity.
 
 ## 9. Evaluate and export

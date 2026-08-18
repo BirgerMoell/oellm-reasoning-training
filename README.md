@@ -75,7 +75,12 @@ python3 scripts/validate_run.py --root "$OELLM_RUN_ROOT" --config configs/data/r
 sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",TRAIN_CONFIG=configs/train/smoke.yaml \
   slurm/train_lumi.sbatch
 
-# After the smoke log has finite loss and a valid saved model:
+# After the smoke log has finite loss, exhaustively scan every saved weight:
+SMOKE_CHECKPOINT="$OELLM_RUN_ROOT/checkpoints/reasoning-v1-smoke/checkpoint-10"
+sbatch --export=ALL,CHECKPOINT="$SMOKE_CHECKPOINT",FULL_SCAN=1 \
+  slurm/check_checkpoint_lumi.sbatch
+
+# Submit production only after the exhaustive smoke checkpoint scan succeeds.
 sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
   slurm/train_production_lumi.sbatch
 ```
@@ -113,6 +118,7 @@ and one-node smoke gate both pass.
 | [`scripts/build_mix.py`](scripts/build_mix.py) | normalize, validate, deduplicate, token-budget, and materialize |
 | [`scripts/train_sft.py`](scripts/train_sft.py) | text-only TRL/FSDP training entry point |
 | [`scripts/validate_run.py`](scripts/validate_run.py) | fail-closed model, manifest, and data checks |
+| [`scripts/check_checkpoint_finite.py`](scripts/check_checkpoint_finite.py) | bounded-memory sampled or exhaustive safetensors finiteness audit |
 | [`scripts/write_run_record.py`](scripts/write_run_record.py) | started/completed YAML provenance for every training attempt |
 | [`slurm/`](slurm/) | LUMI data and GPU jobs |
 | [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md) | stage rationale and detailed choices |
