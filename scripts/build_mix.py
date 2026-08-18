@@ -84,6 +84,8 @@ def clean_messages(raw: Any) -> tuple[list[dict[str, str]] | None, str]:
         content = item.get("content")
         if role not in {"system", "user", "assistant"}:
             return None, "unsupported_role"
+        if isinstance(content, str) and not content.strip() and role == "system":
+            continue
         if not isinstance(content, str) or not content.strip():
             return None, "empty_content"
         messages.append({"role": role, "content": content.strip()})
