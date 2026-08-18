@@ -12,6 +12,7 @@ production starting point.
 | Parent model revision | `08359ad61333263c067edaf290067fea5b103d34` |
 | Data build job | `21346805` (`COMPLETED`, 16m48s) |
 | Training job | `21348717` (`COMPLETED`, exit `0:0`) |
+| Exhaustive weight audit | `21351020` (`COMPLETED`, exit `0:0`, 4m18s) |
 | Allocation | 8 nodes, 64 MI250X GCDs, 14m24s elapsed |
 | Actual allocation cost | 15.36 GCD-hours |
 | Config | `configs/train/sanity.yaml` |
@@ -63,5 +64,11 @@ The final artifact is 170 GiB and contains:
 - the exact chat template and model/generation configs;
 - `reasoning_training_metadata.json` with config, data-manifest, template, parent revision,
   container, repository SHA, Slurm job, node count, and world size.
+
+The repository-native checker added in `aa67b56` streamed every saved value from
+`checkpoint-10/model.safetensors` in bounded chunks on a 220 GiB CPU allocation. It reported
+`FULL_FINITE files=1 tensors=399 values=9101947904 nonfinite=0`. This independently verifies
+that the saved 9B model contains no NaN or infinity, rather than relying only on sampled weights
+or finite training logs.
 
 The production 2,000-step job was not submitted as part of this gate.
