@@ -119,6 +119,7 @@ and one-node smoke gate both pass.
 | [`scripts/build_mix.py`](scripts/build_mix.py) | normalize, validate, deduplicate, token-budget, and materialize |
 | [`scripts/train_sft.py`](scripts/train_sft.py) | text-only TRL/FSDP training entry point |
 | [`scripts/validate_run.py`](scripts/validate_run.py) | fail-closed model, manifest, and data checks |
+| [`scripts/audit_source_capacity.py`](scripts/audit_source_capacity.py) | read-only eligible-token capacity audit for one or more recipe slices |
 | [`scripts/check_checkpoint_finite.py`](scripts/check_checkpoint_finite.py) | bounded-memory sampled or exhaustive safetensors finiteness audit |
 | [`scripts/write_run_record.py`](scripts/write_run_record.py) | started/completed YAML provenance for every training attempt |
 | [`slurm/`](slurm/) | LUMI data and GPU jobs |
