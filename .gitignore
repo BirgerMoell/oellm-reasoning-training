@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 artifacts/
+artifacts-*/
 logs/
 *.parquet
 *.safetensors
