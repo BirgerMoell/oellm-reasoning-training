@@ -27,14 +27,37 @@ def validate() -> list[str]:
     smoke = load(SMOKE_CONFIG)
     sources = data["sources"]
 
-    shares = [float(source["token_share"]) for source in sources]
+    weighted = [source for source in sources if source.get("selection") == "token_weighted"]
+    consume_once = [source for source in sources if source.get("selection") == "all_once"]
+    shares = [float(source["token_share"]) for source in weighted]
     if abs(sum(shares) - 1.0) > 1e-9:
         errors.append(f"token shares sum to {sum(shares)}, not 1.0")
     ids = [source["id"] for source in sources]
     if len(ids) != len(set(ids)):
         errors.append("source IDs are not unique")
     if any(share <= 0 for share in shares):
-        errors.append("every token share must be positive")
+        errors.append("every token-weighted share must be positive")
+    if any("token_share" in source for source in consume_once):
+        errors.append("consume-once sources must not define token_share")
+    required_consume_once = {
+        "expected_selected_rows",
+        "expected_selected_tokens",
+        "expected_languages",
+        "expected_filter_reasons",
+    }
+    for source in consume_once:
+        missing = required_consume_once - set(source)
+        if missing:
+            errors.append(f"{source['id']} consume-once invariants missing: {sorted(missing)}")
+    selections = [source.get("selection") for source in sources]
+    if any(selection not in {"all_once", "token_weighted"} for selection in selections):
+        errors.append("every source must use all_once or token_weighted selection")
+    first_weighted = next(
+        (index for index, selection in enumerate(selections) if selection == "token_weighted"),
+        len(selections),
+    )
+    if any(selection == "all_once" for selection in selections[first_weighted:]):
+        errors.append("consume-once sources must appear before token-weighted sources")
 
     if not COMMIT.match(data["model"]["revision"]):
         errors.append("model revision is not a 40-character commit")
@@ -48,7 +71,9 @@ def validate() -> list[str]:
             "nemotron-v2-math-decontaminated", "nemotron-post-training-v2"
         )
         # Nemotron slices intentionally share one source card; the remaining configured IDs have cards.
-        if source["id"].startswith("nemotron-v2-"):
+        if source["id"] == "reasoning-traces-multilingual-v0.2-pilot":
+            card = ROOT / "data" / "sources" / "reasoning-traces-multilingual"
+        elif source["id"].startswith("nemotron-v2-"):
             card = ROOT / "data" / "sources" / "nemotron-post-training-v2"
         elif source["id"] == "openr1-math-220k-verified":
             card = ROOT / "data" / "sources" / "openr1-math-220k"
@@ -82,7 +107,7 @@ def main() -> None:
         raise SystemExit("configuration validation failed:\n- " + "\n- ".join(errors))
     data = load(DATA_CONFIG)
     print(
-        f"OK: {len(data['sources'])} slices, shares=1.0, "
+        f"OK: {len(data['sources'])} slices, weighted shares=1.0, "
         f"target={int(data['target_tokens']):,} tokens"
     )
 

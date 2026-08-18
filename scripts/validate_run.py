@@ -84,11 +84,33 @@ def validate_data(root: Path, recipe: dict, full: bool) -> None:
     expected_ids = {source["id"] for source in recipe["sources"]}
     if set(source_tokens) != expected_ids:
         fail("manifest source IDs differ from recipe")
-    recipe_shares = {source["id"]: float(source["token_share"]) for source in recipe["sources"]}
-    for source_id, tokens in source_tokens.items():
-        actual = tokens / total
+    weighted_sources = [
+        source for source in recipe["sources"] if source["selection"] == "token_weighted"
+    ]
+    weighted_ids = {source["id"] for source in weighted_sources}
+    weighted_total = sum(source_tokens[source_id] for source_id in weighted_ids)
+    recipe_shares = {source["id"]: float(source["token_share"]) for source in weighted_sources}
+    manifest_by_id = {item["id"]: item for item in manifest["sources"]}
+    for source in recipe["sources"]:
+        source_id = source["id"]
+        if source["selection"] == "all_once":
+            expected_rows = source.get("expected_selected_rows")
+            if expected_rows is not None and manifest_by_id[source_id]["selected_rows"] != expected_rows:
+                fail(f"{source_id} did not include every expected row")
+            expected_tokens = source.get("expected_selected_tokens")
+            if expected_tokens is not None and source_tokens[source_id] != expected_tokens:
+                fail(f"{source_id} rendered token count differs from the recipe")
+            expected_languages = source.get("expected_languages")
+            if expected_languages is not None and len(manifest_by_id[source_id]["language_counts"]) != expected_languages:
+                fail(f"{source_id} language coverage differs from the recipe")
+            for reason, expected_count in source.get("expected_filter_reasons", {}).items():
+                actual_count = manifest_by_id[source_id]["filter_reasons"].get(reason, 0)
+                if actual_count != expected_count:
+                    fail(f"{source_id} filter count for {reason} differs from the recipe")
+            continue
+        actual = source_tokens[source_id] / weighted_total
         if abs(actual - recipe_shares[source_id]) > 0.0025:
-            fail(f"{source_id} token share {actual:.4f} is outside tolerance")
+            fail(f"{source_id} weighted token share {actual:.4f} is outside tolerance")
 
     columns = set(parquet.schema_arrow.names)
     required = {"messages", "prompt_hash", "token_count", "source_id", "language", "task"}

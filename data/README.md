@@ -6,6 +6,7 @@ with “approved for the current run.”
 
 | Source | State | In v1 | Public | LUMI |
 |---|---|---:|---:|---:|
+| [Multilingual reasoning traces v0.2 pilot](sources/reasoning-traces-multilingual/) | production pilot | all 3,351 16K-eligible rows once | yes | stage into run root |
 | [Dolci Think 32B decontaminated](sources/dolci-think-32b-decontaminated/) | production | 20% | yes | stage into run root |
 | [Dolci Think 7B decontaminated](sources/dolci-think-7b-decontaminated/) | production | 15% | yes | stage into run root |
 | [Nemotron post-training v2](sources/nemotron-post-training-v2/) | production + historical raw | 45% | yes | raw version already shared; decontaminated snapshot staged per run |
@@ -16,5 +17,6 @@ with “approved for the current run.”
 | [Multilingual Dolci translations](sources/multilingual-dolci-translations/) | evaluation/candidate | no | samples public; full sets access-controlled | partial |
 | [Historical reasoning parquet](sources/historical-reasoning-parquet/) | comparison only | no | no standalone artifact | yes |
 
-“Production” means the exact revision, license, filters, and artifact path are defined and executable.
-It does not mean the data are copied into Git.
+“Production pilot” means the exact revision, license, acceptance filter, and artifact path are executable,
+while retaining the upstream warning that native-speaker and independent solver validation is incomplete.
+No dataset artifacts are copied into Git.

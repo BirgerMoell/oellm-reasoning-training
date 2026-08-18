@@ -16,7 +16,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Why this stage | The published checkpoint is useful for multilingual instruction following and long-context retrieval, but its published reasoning/math aggregate is 5.9 |
 | Method | Full-parameter, assistant-only reasoning SFT with packed sequences and FlashAttention 2 |
 | Core mixture | `reasoning-v1`, exactly 2,097,152,000 rendered-token target before packing |
-| Language allocation | 65% English reasoning, 20% European-language reasoning (`de`, `fr`, `es`, `it`), 15% multilingual/general replay |
+| Language allocation | First include all 3,351 eligible pilot translations across 37 languages once; allocate the remaining tokens as 65% English reasoning, 20% `de/fr/es/it` reasoning, and 15% multilingual/general replay |
 | Sequence length | 16,384 tokens; records that do not fit are rejected rather than losing the final answer |
 | Production allocation | 8 LUMI-G nodes / 64 MI250X GCDs, global sequence batch 64, 2,000 updates |
 | Optimizer | AdamW, peak LR `3e-6`, cosine decay, 3% warmup, bf16, gradient checkpointing |
@@ -26,11 +26,14 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 
 ## Reasoning-v1 data
 
-Shares are measured in **rendered tokens**, not rows. This matters because reasoning traces vary from
-hundreds to tens of thousands of tokens.
+Weighted shares are measured in **rendered tokens**, not rows. This matters because reasoning traces vary
+from hundreds to tens of thousands of tokens. The multilingual pilot is a fixed coverage floor: consume
+all 3,351 accepted rows that fit 16K once, record the 74 overlength exclusions, then allocate the remaining
+token budget by weight.
 
 | Slice | Token share | Language | State | Use |
 |---|---:|---|---|---|
+| OpenEuroLLM multilingual reasoning traces v0.2 pilot | all 3,351 16K-eligible rows once | 37 non-English languages | pinned public pilot | broad language coverage without truncating 74 overlength traces or oversampling 99 source problems |
 | OpenEuroLLM Dolci Think 32B, decontaminated | 20% | English | pinned; stage on LUMI | broad reasoning teacher traces |
 | OpenEuroLLM Dolci Think 7B, decontaminated | 15% | English | pinned; stage on LUMI | complementary reasoning traces |
 | OpenEuroLLM Nemotron v2 `math` | 10% | English | pinned; stage on LUMI | mathematical reasoning |
@@ -77,10 +80,11 @@ and one-node smoke gate both pass.
 ## Pipeline
 
 1. **Stage immutable inputs.** Download the pinned model and dataset snapshots on a login node.
-2. **Normalize and filter.** Keep complete user/assistant conversations, reject malformed or overlength
-   traces, require verified OpenR1 solutions, and deduplicate by normalized prompt hash.
-3. **Budget by tokens.** Select each slice to its allocation and write one shuffled Parquet plus a
-   checksummed manifest.
+2. **Normalize and filter.** Keep complete user/assistant conversations, require accepted pilot rows and
+   verified OpenR1 solutions, reject malformed or overlength traces, and deduplicate by language-scoped
+   normalized prompt hash.
+3. **Budget by tokens.** Consume the fixed pilot floor, allocate the remaining tokens by source weight,
+   and write one shuffled Parquet plus a checksummed manifest.
 4. **Smoke.** Run ten 8K updates on one node; verify finite loss, assistant masking, and architecture.
 5. **Train.** Run 2,000 packed 16K updates on eight nodes with resumable checkpoints.
 6. **Evaluate.** Compare the SFT baseline and reasoning candidate on the same prompts and decoding.
