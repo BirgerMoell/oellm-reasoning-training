@@ -126,8 +126,9 @@ CHECK_JOB=$(sbatch --export=ALL,CHECKPOINT="$SMOKE_CHECKPOINT",FULL_SCAN=1 \
 echo "$CHECK_JOB"
 ```
 
-The checker uses bounded chunks, supports sharded safetensors, and exits nonzero if any NaN or infinity
-is present. Require `FULL_FINITE` and a `COMPLETED` Slurm state.
+The checker uses bounded chunks, supports sharded safetensors, requires the five architectural sentinel
+tensors, and verifies the expected 399 tensors / 9,101,947,904 values. It exits nonzero for a structural
+mismatch or any NaN or infinity. Require `FULL_FINITE` and a `COMPLETED` Slurm state.
 
 ## 7. Production
 

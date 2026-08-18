@@ -15,6 +15,8 @@ module purge
 
 : "${CHECKPOINT:?Set CHECKPOINT to a checkpoint directory or model safetensors file}"
 : "${FULL_SCAN:=1}"
+: "${EXPECTED_TENSORS:=399}"
+: "${EXPECTED_VALUES:=9101947904}"
 
 CONTAINER=/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif
 OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
@@ -36,5 +38,6 @@ singularity exec -B "$BIND" "$CONTAINER" bash -lc "
   export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
   export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
   cd $SLURM_SUBMIT_DIR
-  python3 scripts/check_checkpoint_finite.py ${ARGS[*]} '$CHECKPOINT'
+  python3 scripts/check_checkpoint_finite.py ${ARGS[*]} \
+    --expected-tensors '$EXPECTED_TENSORS' --expected-values '$EXPECTED_VALUES' '$CHECKPOINT'
 "

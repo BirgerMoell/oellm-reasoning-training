@@ -59,6 +59,8 @@ def main() -> None:
         default=64 * 1024 * 1024,
         help="maximum values materialized at once during a full scan",
     )
+    parser.add_argument("--expected-tensors", type=int)
+    parser.add_argument("--expected-values", type=int)
     parser.add_argument("checkpoint", type=Path)
     args = parser.parse_args()
     files = checkpoint_files(args.checkpoint)
@@ -70,6 +72,10 @@ def main() -> None:
                 if name in locations:
                     raise SystemExit(f"Duplicate tensor {name} in {locations[name]} and {file}")
                 locations[name] = file
+
+    missing = [name for name in DEFAULT_TENSORS if name not in locations]
+    if missing:
+        raise SystemExit(f"Required model tensors are missing: {', '.join(missing)}")
 
     if args.full:
         tensor_count = value_count = nonfinite_count = 0
@@ -84,20 +90,29 @@ def main() -> None:
                     nonfinite_count += tensor_nonfinite
                     if tensor_nonfinite:
                         print(f"NONFINITE {name} shape={shape} count={tensor_nonfinite}")
-        state = "FULL_FINITE" if nonfinite_count == 0 else "FULL_NONFINITE"
+        structure_ok = True
+        if args.expected_tensors is not None and tensor_count != args.expected_tensors:
+            print(f"TENSOR_COUNT_MISMATCH actual={tensor_count} expected={args.expected_tensors}")
+            structure_ok = False
+        if args.expected_values is not None and value_count != args.expected_values:
+            print(f"VALUE_COUNT_MISMATCH actual={value_count} expected={args.expected_values}")
+            structure_ok = False
+        if nonfinite_count:
+            state = "FULL_NONFINITE"
+        elif not structure_ok:
+            state = "FULL_INVALID"
+        else:
+            state = "FULL_FINITE"
         print(
             f"{state} files={len(files)} tensors={tensor_count} "
             f"values={value_count} nonfinite={nonfinite_count}"
         )
-        raise SystemExit(0 if nonfinite_count == 0 else 1)
+        raise SystemExit(0 if nonfinite_count == 0 and structure_ok else 1)
 
     all_finite = True
     for name in DEFAULT_TENSORS:
         file = locations.get(name)
-        if file is None:
-            print(f"MISSING {name}")
-            all_finite = False
-            continue
+        assert file is not None
         with safe_open(file, framework="pt", device="cpu") as checkpoint:
             view = checkpoint.get_slice(name)
             shape = view.get_shape()
