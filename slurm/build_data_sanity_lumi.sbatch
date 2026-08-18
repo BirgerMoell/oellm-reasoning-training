@@ -24,6 +24,7 @@ mkdir -p logs "$OELLM_RUN_ROOT/cache/huggingface"
 echo "Building sanity artifact from $DATA_CONFIG into $OELLM_RUN_ROOT"
 
 singularity exec -B "$BIND" "$CONTAINER" bash -lc "
+  set -euo pipefail
   export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
   export HF_HOME=$OELLM_RUN_ROOT/cache/huggingface
   export HF_DATASETS_CACHE=$OELLM_RUN_ROOT/cache/huggingface/datasets

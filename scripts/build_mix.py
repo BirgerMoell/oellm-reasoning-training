@@ -10,6 +10,7 @@ import os
 import sqlite3
 import subprocess
 from collections import Counter
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,26 @@ def normalized_prompt(messages: list[dict[str, str]]) -> str:
         if message["role"] == "user":
             return " ".join(message["content"].casefold().split())
     return ""
+
+
+def rendered_token_count(tokenizer: Any, messages: list[dict[str, str]]) -> int:
+    """Handle both Transformers 4 list output and Transformers 5 BatchEncoding output."""
+
+    encoded = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=False,
+    )
+    if isinstance(encoded, Mapping):
+        input_ids = encoded.get("input_ids")
+        if input_ids is None:
+            raise ValueError("tokenized chat-template output has no input_ids")
+        if input_ids and isinstance(input_ids[0], list):
+            if len(input_ids) != 1:
+                raise ValueError("expected one tokenized conversation")
+            input_ids = input_ids[0]
+        return len(input_ids)
+    return len(encoded)
 
 
 def clean_messages(raw: Any) -> tuple[list[dict[str, str]] | None, str]:
@@ -200,11 +221,7 @@ def normalize_dataset(
             token_count = 0
         else:
             try:
-                token_count = len(
-                    tokenizer.apply_chat_template(
-                        messages, tokenize=True, add_generation_prompt=False
-                    )
-                )
+                token_count = rendered_token_count(tokenizer, messages)
                 reason = "ok"
             except Exception:
                 token_count = 0
