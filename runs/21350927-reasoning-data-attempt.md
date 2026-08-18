@@ -27,7 +27,9 @@ silently oversampling duplicate math prompts or producing a short mixture.
 
 ## Recipe correction
 
-Production v1 caps Nemotron math at 3.5%, safely below its measured capacity, and reallocates the
-6.5 percentage points to Dolci 32B (+3.5) and Dolci 7B (+3.0). The overall allocation remains 65%
-English reasoning, 20% `de/fr/es/it` reasoning, and 15% exact SFT replay. A new full build must pass
-all remaining source quotas, the manifest checksum checks, and the full prompt-hash deduplication scan.
+Production v1 caps Nemotron math at 3.5%, safely below its measured capacity. Follow-up audits also
+found only 56,065,276 one-pass unique code tokens, so code is capped at 2%. Specialized and language-
+targeted sources now claim duplicate prompts before the broad Dolci pools, which are increased to 27%
+and 20.5% to absorb both capacity shortfalls. The overall allocation remains 65% English reasoning,
+20% `de/fr/es/it` reasoning, and 15% exact SFT replay. A new full build must pass all remaining source
+quotas, the manifest checksum checks, and the full prompt-hash deduplication scan.

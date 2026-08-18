@@ -150,6 +150,18 @@ def weighted_quotas(config: dict[str, Any], fixed_tokens: int) -> dict[str, int]
     return result
 
 
+def ordered_sources(config: dict[str, Any]) -> list[dict[str, Any]]:
+    sources = config["sources"]
+    order = config.get("selection_order")
+    if order is None:
+        return sources
+    ids = [source["id"] for source in sources]
+    if len(order) != len(set(order)) or set(order) != set(ids):
+        raise ValueError("selection_order must contain every source ID exactly once")
+    by_id = {source["id"]: source for source in sources}
+    return [by_id[source_id] for source_id in order]
+
+
 def resolve_files(source: dict[str, Any], root: Path) -> list[Path]:
     spec = source["input"]
     if spec["kind"] == "local_parquet":
@@ -371,7 +383,7 @@ def main() -> None:
     fixed_tokens = 0
     per_source_quotas: dict[str, int] | None = None
 
-    for source_index, source in enumerate(config["sources"]):
+    for source_index, source in enumerate(ordered_sources(config)):
         available_files = resolve_files(source, args.root)
         max_input_files = source.get("max_input_files")
         if max_input_files is not None:

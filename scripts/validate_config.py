@@ -30,6 +30,7 @@ def validate() -> list[str]:
     smoke = load(SMOKE_CONFIG)
     sanity_train = load(SANITY_TRAIN_CONFIG)
     sources = data["sources"]
+    selection_order = data.get("selection_order")
 
     weighted = [source for source in sources if source.get("selection") == "token_weighted"]
     consume_once = [source for source in sources if source.get("selection") == "all_once"]
@@ -39,6 +40,12 @@ def validate() -> list[str]:
     ids = [source["id"] for source in sources]
     if len(ids) != len(set(ids)):
         errors.append("source IDs are not unique")
+    if selection_order is None:
+        errors.append("production selection_order is missing")
+    elif len(selection_order) != len(set(selection_order)) or set(selection_order) != set(ids):
+        errors.append("selection_order must contain every production source ID exactly once")
+    elif selection_order[0] != "reasoning-traces-multilingual-v0.2-pilot":
+        errors.append("the fixed multilingual pilot must be first in selection_order")
     if any(share <= 0 for share in shares):
         errors.append("every token-weighted share must be positive")
     if any("token_share" in source for source in consume_once):
