@@ -45,7 +45,7 @@ sources:
   - id: dolci-think-32b-decontaminated
     role: broad_reasoning
     selection: token_weighted
-    token_share: 0.20
+    token_share: 0.235
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -60,7 +60,7 @@ sources:
   - id: dolci-think-7b-decontaminated
     role: broad_reasoning
     selection: token_weighted
-    token_share: 0.15
+    token_share: 0.18
     language: en
     adapter: messages
     require_reasoning_trace: true
@@ -75,7 +75,9 @@ sources:
   - id: nemotron-v2-math-decontaminated
     role: math_reasoning
     selection: token_weighted
-    token_share: 0.10
+    # Full build 21350927 measured 80,930,889 eligible tokens after
+    # cross-source deduplication, so this source must stay below 3.89%.
+    token_share: 0.035
     language: en
     adapter: messages
     require_reasoning_trace: true

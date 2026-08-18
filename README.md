@@ -38,9 +38,9 @@ token budget by weight.
 | Slice | Token share | Language | State | Use |
 |---|---:|---|---|---|
 | OpenEuroLLM multilingual reasoning traces v0.2 pilot | all 3,351 16K-eligible rows once | 37 non-English languages | pinned public pilot | broad language coverage without truncating 74 overlength traces or oversampling 99 source problems |
-| OpenEuroLLM Dolci Think 32B, decontaminated | 20% | English | pinned; stage on LUMI | broad reasoning teacher traces |
-| OpenEuroLLM Dolci Think 7B, decontaminated | 15% | English | pinned; stage on LUMI | complementary reasoning traces |
-| OpenEuroLLM Nemotron v2 `math` | 10% | English | pinned; stage on LUMI | mathematical reasoning |
+| OpenEuroLLM Dolci Think 32B, decontaminated | 23.5% | English | pinned; full build has sufficient capacity | broad reasoning teacher traces |
+| OpenEuroLLM Dolci Think 7B, decontaminated | 18% | English | pinned; full build has sufficient capacity | complementary reasoning traces |
+| OpenEuroLLM Nemotron v2 `math` | 3.5% | English | pinned; capped below its measured 80.93M eligible-token capacity | mathematical reasoning without duplicate oversampling |
 | OpenEuroLLM Nemotron v2 `code` | 8% | English | pinned; stage on LUMI | code reasoning |
 | OpenEuroLLM Nemotron v2 `stem` | 7% | English | pinned; stage on LUMI | science and technical reasoning |
 | OpenEuroLLM Nemotron v2 multilingual | 20% | `de`, `fr`, `es`, `it` (5% each) | pinned; stage on LUMI | reasoning in European languages |

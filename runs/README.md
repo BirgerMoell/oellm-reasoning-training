@@ -6,4 +6,5 @@ locations and provenance needed to inspect them.
 
 | Date | Job | Purpose | Result |
 |---|---:|---|---|
+| 2026-08-18 | [`21350927`](21350927-reasoning-data-attempt.md) | first full reasoning-v1 data build | failed safely; measured math capacity and corrected recipe |
 | 2026-08-18 | [`21348717`](21348717-reasoning-sanity.md) | eight-node production-path reasoning sanity | passed |

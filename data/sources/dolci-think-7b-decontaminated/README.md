@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | State | `production` |
-| v1 allocation | 15% of rendered tokens |
+| v1 allocation | 18% of rendered tokens |
 | Role | complementary broad English reasoning traces |
 | Public source | [`openeurollm/Dolci-Think-SFT-7B-decontaminated`](https://huggingface.co/datasets/openeurollm/Dolci-Think-SFT-7B-decontaminated) |
 | Revision | `d6550429f7a59a28e8f0881ab51448a94fe771ca` |
