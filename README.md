@@ -86,6 +86,16 @@ sbatch --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT" \
   slurm/train_production_lumi.sbatch
 ```
 
+For a long isolated full-data build, submit the same gates as a fail-closed dependency chain. The
+production allocation can start only if the data job, atomic promotion, smoke run, and exhaustive
+checkpoint scan all complete successfully:
+
+```bash
+scripts/submit_production_pipeline.sh \
+  DATA_JOB_ID /scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts-final-GIT_SHA \
+  FULL_DATA_BUILD_GIT_SHA
+```
+
 See [`docs/LUMI_RUNBOOK.md`](docs/LUMI_RUNBOOK.md) for the cold-start procedure, monitoring,
 checkpoint recovery, and exact output layout. Do not submit the production job until the data manifest
 and one-node smoke gate both pass.

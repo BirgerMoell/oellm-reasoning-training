@@ -130,6 +130,18 @@ The checker uses bounded chunks, supports sharded safetensors, requires the five
 tensors, and verifies the expected 399 tensors / 9,101,947,904 values. It exits nonzero for a structural
 mismatch or any NaN or infinity. Require `FULL_FINITE` and a `COMPLETED` Slurm state.
 
+For an isolated full-data build, the repository can encode all remaining gates as Slurm dependencies:
+
+```bash
+scripts/submit_production_pipeline.sh \
+  DATA_JOB_ID SOURCE_ARTIFACT_ROOT EXPECTED_DATA_BUILD_GIT_SHA
+```
+
+This submits four jobs: validate-and-promote, one-node smoke, exhaustive checkpoint scan, and production.
+Each uses `afterok` and `--kill-on-invalid-dep=yes`, so no downstream GPU job can run after a failed gate.
+Promotion is an atomic symlink and refuses an existing canonical data path or a manifest from a different
+repository commit. The job IDs are written to `$OELLM_RUN_ROOT/runs/pipeline-DATA_JOB_ID.txt`.
+
 ## 7. Production
 
 ```bash

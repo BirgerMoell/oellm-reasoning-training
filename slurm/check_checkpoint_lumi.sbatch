@@ -11,7 +11,9 @@
 #SBATCH --error=logs/%j.err
 
 set -euo pipefail
-module purge
+
+# This job executes entirely inside the pinned container. Avoid host `module
+# purge`, which can block in Lmod/Lustre metadata I/O on LUMI CPU nodes.
 
 : "${CHECKPOINT:?Set CHECKPOINT to a checkpoint directory or model safetensors file}"
 : "${FULL_SCAN:=1}"
