@@ -46,6 +46,11 @@ $OELLM_RUN_ROOT/
 - checkpoint paths and hashes;
 - evaluation directories and final decision.
 
+The launcher writes `status: started` before Accelerate begins, changes it to `completed` only after
+all ranks return successfully, and changes it to `failed` with the launcher exit code and UTC timestamp
+when `srun` fails. A production candidate is never accepted from the run record alone: its Slurm state,
+training log, saved trainer state, and exhaustive weight audit must agree.
+
 ## Data manifest
 
 The builder writes:

@@ -86,6 +86,7 @@ NUM_PROC=$(( GPUS_PER_NODE * SLURM_NNODES ))
 export NUM_PROC
 echo "Config=$TRAIN_CONFIG nodes=$SLURM_NNODES world=$NUM_PROC root=$OELLM_RUN_ROOT"
 
+set +e
 srun --label singularity exec -B "$BIND" "$CONTAINER" bash -lc "
   set -euo pipefail
   export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
@@ -114,5 +115,21 @@ srun --label singularity exec -B "$BIND" "$CONTAINER" bash -lc "
     python3 scripts/write_run_record.py --run-dir $RUN_DIR --config $TRAIN_CONFIG --root $OELLM_RUN_ROOT --container $TRAINING_CONTAINER --status completed
   fi
 "
+TRAIN_EXIT=$?
+set -e
+
+if [[ "$TRAIN_EXIT" -ne 0 ]]; then
+  singularity exec -B "$BIND" "$CONTAINER" bash -lc "
+    set -euo pipefail
+    export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
+    export NUM_PROC=$NUM_PROC RESUME_FROM_CHECKPOINT=$RESUME_FROM_CHECKPOINT
+    cd $SLURM_SUBMIT_DIR
+    python3 scripts/write_run_record.py --run-dir $RUN_DIR --config $TRAIN_CONFIG \
+      --root $OELLM_RUN_ROOT --container $TRAINING_CONTAINER --status failed \
+      --exit-code $TRAIN_EXIT
+  " || true
+  echo "Training job failed with exit code $TRAIN_EXIT at $(date --iso-8601=seconds)" >&2
+  exit "$TRAIN_EXIT"
+fi
 
 echo "Training job completed at $(date --iso-8601=seconds)"

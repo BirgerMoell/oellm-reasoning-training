@@ -34,7 +34,8 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--container", required=True)
-    parser.add_argument("--status", choices=("started", "completed"), required=True)
+    parser.add_argument("--status", choices=("started", "completed", "failed"), required=True)
+    parser.add_argument("--exit-code", type=int)
     args = parser.parse_args()
 
     args.run_dir.mkdir(parents=True, exist_ok=True)
@@ -104,6 +105,9 @@ def main() -> None:
         attempts[-1]["status"] = args.status
     if args.status == "completed":
         attempts[-1]["completed_at"] = utc_now()
+    elif args.status == "failed":
+        attempts[-1]["failed_at"] = utc_now()
+        attempts[-1]["exit_code"] = args.exit_code
 
     record_path.write_text(yaml.safe_dump(record, sort_keys=False), encoding="utf-8")
     print(f"Run record {args.status}: {record_path}")
