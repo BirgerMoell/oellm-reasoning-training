@@ -11,6 +11,7 @@ OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray
 
 mkdir -p logs "$OELLM_RUN_ROOT/cache/huggingface"
+scripts/install_lumi_dependencies.sh
 singularity exec -B "$BIND" "$CONTAINER" env \
   PYTHONPATH="$OVERLAY" \
   HF_HOME="$OELLM_RUN_ROOT/cache/huggingface" \

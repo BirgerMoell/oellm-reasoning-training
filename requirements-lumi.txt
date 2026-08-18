@@ -1,0 +1,4 @@
+# Compute nodes are offline. Install this on a login node into the pinned overlay.
+liger-kernel==0.8.1 \
+    --hash=sha256:90836c1e9de22a1c57a640775fb79151ea704748cf9c3f6658dddaa06fff1989 \
+    --hash=sha256:ae708a8079d2283070128e38497aa2976294d822e21a0f21ea86e63c67334a8b

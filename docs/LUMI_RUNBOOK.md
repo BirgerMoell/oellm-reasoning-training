@@ -13,6 +13,7 @@
 | TRL | `0.28.0` |
 | Datasets | `5.0.0` |
 | Accelerate | `1.12.0` |
+| Liger Kernel | `0.8.1` (fused linear cross-entropy only) |
 | Default artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |
 
 Compute nodes run offline. Download model/data snapshots on a login node before the CPU build or GPU job.
@@ -29,6 +30,13 @@ mkdir -p "$OELLM_RUN_ROOT" logs
 ```
 
 Record `git rev-parse HEAD` before doing anything else.
+
+Install and verify the repository-pinned addition to the shared overlay from the login node. The script
+uses hashes from `requirements-lumi.txt`; compute nodes remain offline.
+
+```bash
+scripts/install_lumi_dependencies.sh
+```
 
 ## 2. Stage the pinned snapshots
 
@@ -62,6 +70,11 @@ building 16,777,216 rendered tokens. It then runs ten packed 16K updates on the 
 topology. The wrapper executes the exact production launcher; only data/output paths, step count, logging,
 and save interval differ. Require finite loss on all ranks and a reloadable checkpoint. Never release or
 resume production from `checkpoints/reasoning-sanity`.
+
+The 16K workload requires Liger's Qwen3 fused linear cross-entropy. Without it, the ordinary loss
+materializes a roughly 16 GiB full-vocabulary logits gradient per rank and fails after optimizer state is
+created. Only the fused loss is enabled; attention, RoPE, RMSNorm, and SwiGLU remain on the pinned model
+and FlashAttention implementations.
 
 ## 4. Build the mixture
 

@@ -129,6 +129,18 @@ def validate() -> list[str]:
         errors.append("sanity training differs from production outside the allowed run-size fields")
     if train["attn_implementation"] != "flash_attention_2" or not train["packing"]:
         errors.append("production packing requires flash_attention_2")
+    expected_liger = {
+        "rope": False,
+        "cross_entropy": False,
+        "fused_linear_cross_entropy": True,
+        "rms_norm": False,
+        "swiglu": False,
+    }
+    for name, config in (("production", train), ("sanity", sanity_train), ("smoke", smoke)):
+        if not config.get("use_liger_kernel"):
+            errors.append(f"{name} training must enable the fused Liger loss")
+        if config.get("liger_kernel_config") != expected_liger:
+            errors.append(f"{name} training has an unexpected Liger kernel configuration")
     if not train["assistant_only_loss"] or not smoke["assistant_only_loss"]:
         errors.append("assistant-only loss must be enabled")
     if train["save_only_model"]:

@@ -6,9 +6,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import torch
+import yaml
 from transformers import AutoConfig, AutoModelForCausalLM
 from trl import (
     DatasetMixtureConfig,
@@ -30,6 +32,31 @@ EXPECTED = {
     "rope_theta": 64000000,
     "vocab_size": 263168,
 }
+
+EXPECTED_LIGER_CONFIG = {
+    "rope": False,
+    "cross_entropy": False,
+    "fused_linear_cross_entropy": True,
+    "rms_norm": False,
+    "swiglu": False,
+}
+
+
+def validate_training_stack(training_args: SFTConfig) -> None:
+    """Fail before model loading unless the 16K-safe fused loss is exactly configured."""
+    if not training_args.use_liger_kernel:
+        raise RuntimeError("16K reasoning SFT requires the fused Liger loss")
+    if training_args.liger_kernel_config != EXPECTED_LIGER_CONFIG:
+        raise RuntimeError(
+            "unexpected Liger configuration: "
+            f"{training_args.liger_kernel_config!r} != {EXPECTED_LIGER_CONFIG!r}"
+        )
+    try:
+        installed = version("liger-kernel")
+    except PackageNotFoundError as error:
+        raise RuntimeError("liger-kernel is not installed in the LUMI overlay") from error
+    if installed != "0.8.1":
+        raise RuntimeError(f"liger-kernel version mismatch: {installed!r} != '0.8.1'")
 
 
 def validate_architecture(config: object) -> None:
@@ -131,8 +158,9 @@ def write_training_metadata(
         parent_revision = json.loads(model_snapshot.read_text(encoding="utf-8")).get(
             "revision", parent_revision
         )
-    run_root = Path(os.environ.get("OELLM_RUN_ROOT", ""))
-    data_manifest = run_root / "data" / "reasoning-v1" / "manifest.json"
+    resolved_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    train_file = resolved_config["datasets"][0]["data_files"]["train"]
+    data_manifest = Path(train_file).with_name("manifest.json")
 
     def digest(path: Path) -> str | None:
         if not path.is_file():
@@ -166,6 +194,7 @@ def main(
     dataset_args: DatasetMixtureConfig,
     config_path: Path,
 ) -> None:
+    validate_training_stack(training_args)
     if model_args.attn_implementation != "flash_attention_2":
         raise RuntimeError("packed reasoning SFT requires flash_attention_2")
     model = load_model(model_args)
