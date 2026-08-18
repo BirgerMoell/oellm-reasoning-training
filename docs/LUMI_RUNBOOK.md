@@ -141,7 +141,8 @@ echo "$PROD_JOB"
 The production wrapper fixes the tested 8-node / 64-GCD topology, 14-hour wall time, and committed
 `reasoning-v1` recipe. The common launcher refuses a fresh run if the output directory is non-empty and
 refuses a resume if no production output exists. Based on the validated 64-GCD sanity throughput, expect
-roughly 10–12 hours and 650–800 GCD-hours, including eight full-state checkpoint saves.
+roughly 10–12 hours and 650–800 GCD-hours, including eight full-state checkpoint saves. The measured
+full-state size is 136 GiB per checkpoint; verify at least 1.2 TiB of free project storage before submitting.
 
 Record the job ID immediately in `$OELLM_RUN_ROOT/runs/<run-id>/run.yaml`. Watch the first 20 steps for
 finite, generally decreasing loss and similar throughput on all nodes.

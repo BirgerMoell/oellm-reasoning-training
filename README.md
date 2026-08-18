@@ -20,6 +20,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Sequence length | 16,384 tokens; records that do not fit are rejected rather than losing the final answer |
 | Production allocation | 8 LUMI-G nodes / 64 MI250X GCDs, global sequence batch 64, 2,000 updates |
 | Measured budget | approximately 10–12 hours and 650–800 GCD-hours, including eight resumable checkpoints |
+| Measured storage | 136 GiB per resumable checkpoint; reserve at least 1.2 TiB for eight checkpoints plus the final model |
 | Optimizer | AdamW, peak LR `3e-6`, cosine decay, 3% warmup, bf16, gradient checkpointing |
 | Architecture invariants | 262,144 max positions, RoPE theta 64,000,000, vocab 263,168, Gemma-style turn markers |
 | LUMI artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |

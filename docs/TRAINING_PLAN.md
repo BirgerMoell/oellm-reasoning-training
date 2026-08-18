@@ -134,7 +134,7 @@ Use `configs/train/reasoning-v1.yaml` on 8 nodes / 64 GCDs.
 | precision | bf16 | matches the published checkpoint and MI250X path |
 | attention | FlashAttention 2 | required for safe, efficient packing |
 | loss | assistant tokens only | avoid learning prompt text as completion behavior |
-| checkpoints | every 250 steps, keep all 8 | supports recovery and preserves the 500/1,000/1,500/2,000 evaluation milestones; budget roughly 0.9 TiB |
+| checkpoints | every 250 steps, keep all 8 | supports recovery and preserves the 500/1,000/1,500/2,000 evaluation milestones; measured at 136 GiB each, so reserve at least 1.2 TiB including the final model |
 | evaluation during train | none | long generation suites run separately and reproducibly |
 
 Expected compute is about twice the token work of the published 4K SFT run. Eight nodes are chosen to
