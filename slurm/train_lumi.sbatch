@@ -1,0 +1,75 @@
+#!/bin/bash
+#SBATCH --job-name=oellm-reason-sft
+#SBATCH --account=project_465002530
+#SBATCH --partition=standard-g
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=8
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=56
+#SBATCH --mem=480G
+#SBATCH --time=0-02:00:00
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
+
+set -euo pipefail
+module purge
+
+: "${OELLM_RUN_ROOT:=/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts}"
+: "${TRAIN_CONFIG:=configs/train/smoke.yaml}"
+: "${GPUS_PER_NODE:=8}"
+: "${RESUME_FROM_CHECKPOINT:=0}"
+
+CONTAINER=/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif
+OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
+BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
+HF_CACHE=$OELLM_RUN_ROOT/cache/huggingface
+
+mkdir -p logs "$HF_CACHE" "$OELLM_RUN_ROOT/runs"
+ln -sf "${SLURM_JOB_ID}.out" logs/latest.out 2>/dev/null || true
+
+RUN_DIR=$OELLM_RUN_ROOT/runs/$SLURM_JOB_ID
+mkdir -p "$RUN_DIR"
+cp "$TRAIN_CONFIG" "$RUN_DIR/resolved-train-config.yaml"
+cp templates/oellm_gemma_assistant_mask.jinja "$RUN_DIR/chat-template.jinja"
+git rev-parse HEAD > "$RUN_DIR/repository-git-sha.txt"
+export REPOSITORY_GIT_SHA
+REPOSITORY_GIT_SHA=$(git rev-parse HEAD)
+export TRAINING_CONTAINER=$CONTAINER
+
+export MASTER_ADDR
+MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_PORT
+MASTER_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
+export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
+export NCCL_NET_GDR_LEVEL=PHB
+export OMP_NUM_THREADS=7
+export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export RANK0_META_LOAD=1
+export RESUME_FROM_CHECKPOINT
+
+NUM_PROC=$(( GPUS_PER_NODE * SLURM_NNODES ))
+echo "Config=$TRAIN_CONFIG nodes=$SLURM_NNODES world=$NUM_PROC root=$OELLM_RUN_ROOT"
+
+srun --label singularity exec -B "$BIND" "$CONTAINER" bash -lc "
+  export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
+  export HF_HOME=$HF_CACHE HF_DATASETS_CACHE=$HF_CACHE/datasets
+  export HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+  export ACCELERATE_USE_FSDP=true FSDP_CPU_RAM_EFFICIENT_LOADING=1
+  export RANK0_META_LOAD=$RANK0_META_LOAD RESUME_FROM_CHECKPOINT=$RESUME_FROM_CHECKPOINT
+  export CHAT_TEMPLATE_FILE=$SLURM_SUBMIT_DIR/templates/oellm_gemma_assistant_mask.jinja
+  export TRAIN_CONFIG=$TRAIN_CONFIG
+  export OELLM_RUN_ROOT=$OELLM_RUN_ROOT REPOSITORY_GIT_SHA=$REPOSITORY_GIT_SHA
+  export TRAINING_CONTAINER=$TRAINING_CONTAINER
+  cd $SLURM_SUBMIT_DIR
+  accelerate launch \
+    --config_file configs/accelerate/fsdp_lumi.yaml \
+    --main_process_ip '$MASTER_ADDR' \
+    --main_process_port '$MASTER_PORT' \
+    --num_machines $SLURM_NNODES \
+    --num_processes $NUM_PROC \
+    --machine_rank \$SLURM_PROCID \
+    scripts/train_sft.py --config $TRAIN_CONFIG
+"
+
+echo "Training job completed at $(date --iso-8601=seconds)"

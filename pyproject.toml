@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oellm-reasoning-training"
+version = "0.1.0"
+description = "Reproducible reasoning SFT for OpenEuroLLM 9B on LUMI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = [
+  "accelerate==1.12.0",
+  "datasets==5.0.0",
+  "huggingface-hub==1.20.1",
+  "pyarrow==24.0.0",
+  "PyYAML>=6.0,<7",
+  "transformers==5.12.1",
+  "trl==0.28.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.12"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

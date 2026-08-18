@@ -1,0 +1,31 @@
+# One-node fail-closed smoke. Never use this output as a release checkpoint.
+model_name_or_path: /scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts/models/oellm-9b-256k-sft
+dtype: bfloat16
+attn_implementation: flash_attention_2
+datasets:
+  - path: parquet
+    data_files:
+      train: /scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts/data/reasoning-v1/train.parquet
+    split: "train[:4096]"
+output_dir: /scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts/checkpoints/reasoning-v1-smoke
+eos_token: <end_of_turn>
+max_length: 8192
+packing: true
+assistant_only_loss: true
+dataset_num_proc: 4
+ddp_timeout: 18000
+max_steps: 10
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 1
+learning_rate: 3.0e-6
+lr_scheduler_type: cosine
+warmup_steps: 1
+weight_decay: 0.0
+bf16: true
+gradient_checkpointing: true
+logging_steps: 1
+save_steps: 10
+save_total_limit: 1
+save_only_model: false
+eval_strategy: "no"
+report_to: none
