@@ -23,6 +23,7 @@ from tokenizer_utils import load_local_tokenizer
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates" / "oellm_gemma_assistant_mask.jinja"
+DEDUP_COMMIT_ROWS = 100_000
 
 
 def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -303,7 +304,11 @@ def select_unique_to_quota(
             continue
         selected_indices.append(index)
         selected_tokens += int(row["token_count"])
-        if len(selected_indices) % 5000 == 0:
+        # Lustre makes frequent SQLite durability barriers disproportionately
+        # expensive. A failed build is never accepted without its final
+        # manifest/validation, so committing in larger recoverable chunks is
+        # both safe and much faster on LUMI.
+        if len(selected_indices) % DEDUP_COMMIT_ROWS == 0:
             connection.commit()
         if selected_tokens >= quota:
             break
@@ -375,6 +380,9 @@ def main() -> None:
     tokenizer.chat_template = TEMPLATE.read_text(encoding="utf-8")
 
     connection = sqlite3.connect(database_file)
+    connection.execute("PRAGMA synchronous=NORMAL")
+    connection.execute("PRAGMA temp_store=MEMORY")
+    connection.execute("PRAGMA cache_size=-65536")
     connection.execute(
         "CREATE TABLE prompts(prompt_hash TEXT PRIMARY KEY, source_id TEXT NOT NULL) WITHOUT ROWID"
     )
