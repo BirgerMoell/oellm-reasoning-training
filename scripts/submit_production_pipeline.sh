@@ -32,8 +32,23 @@ for output in "$SMOKE_OUTPUT" "$PRODUCTION_OUTPUT"; do
   fi
 done
 
+data_state=$(sacct -X -j "$DATA_JOB_ID" --format=State -n -P | head -n 1 | cut -d'|' -f1)
+data_state=${data_state%%+}
+case "$data_state" in
+  COMPLETED)
+    data_dependency=()
+    ;;
+  PENDING|CONFIGURING|RUNNING|COMPLETING|SUSPENDED)
+    data_dependency=(--dependency="afterok:$DATA_JOB_ID")
+    ;;
+  *)
+    echo "Data job $DATA_JOB_ID is not promotable: state=$data_state" >&2
+    exit 2
+    ;;
+esac
+
 promotion_job=$(sbatch --parsable --kill-on-invalid-dep=yes \
-  --dependency="afterok:$DATA_JOB_ID" \
+  "${data_dependency[@]}" \
   --export="ALL,SOURCE_ARTIFACT_ROOT=$SOURCE_ARTIFACT_ROOT,EXPECTED_BUILD_SHA=$EXPECTED_BUILD_SHA,OELLM_RUN_ROOT=$OELLM_RUN_ROOT" \
   slurm/promote_data_lumi.sbatch)
 
@@ -57,6 +72,7 @@ mkdir -p "$OELLM_RUN_ROOT/runs"
 record=$OELLM_RUN_ROOT/runs/pipeline-$DATA_JOB_ID.txt
 {
   echo "data_job=$DATA_JOB_ID"
+  echo "data_state=$data_state"
   echo "promotion_job=$promotion_job"
   echo "smoke_job=$smoke_job"
   echo "audit_job=$audit_job"
