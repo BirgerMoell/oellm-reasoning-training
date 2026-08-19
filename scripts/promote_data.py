@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Promote a fully validated isolated data build through an atomic symlink."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
