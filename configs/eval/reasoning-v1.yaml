@@ -15,19 +15,19 @@ harness:
 models:
   - id: baseline
     role: starting_sft_checkpoint
-    path: artifacts/models/oellm-9b-256k-sft
+    path: models/oellm-9b-256k-sft
   - id: step-0500
     role: reasoning_candidate
-    path: artifacts/checkpoints/reasoning-v1/checkpoint-500
+    path: checkpoints/reasoning-v1/checkpoint-500
   - id: step-1000
     role: reasoning_candidate
-    path: artifacts/checkpoints/reasoning-v1/checkpoint-1000
+    path: checkpoints/reasoning-v1/checkpoint-1000
   - id: step-1500
     role: reasoning_candidate
-    path: artifacts/checkpoints/reasoning-v1/checkpoint-1500
+    path: checkpoints/reasoning-v1/checkpoint-1500
   - id: step-2000
     role: reasoning_candidate
-    path: artifacts/checkpoints/reasoning-v1/checkpoint-2000
+    path: checkpoints/reasoning-v1/checkpoint-2000
 
 tasks:
   - id: gsm8k
