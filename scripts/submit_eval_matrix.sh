@@ -8,6 +8,8 @@ cd "$ROOT_DIR"
 : "${EVAL_KIND:=full}"
 : "${EVAL_MAX_CONCURRENT:=10}"
 : "${EVAL_LIMIT:=}"
+: "${EVAL_PARTITION:=small-g}"
+: "${EVAL_TIME:=0-12:00:00}"
 
 CONFIG=${1:-configs/eval/reasoning-v1.yaml}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
@@ -53,6 +55,8 @@ singularity exec -B "$BIND" "$EVAL_CONTAINER" \
 
 ARRAY_END=$(( ROWS - 1 ))
 JOB_ID=$(sbatch --parsable \
+  --partition="$EVAL_PARTITION" \
+  --time="$EVAL_TIME" \
   --array="0-${ARRAY_END}%${EVAL_MAX_CONCURRENT}" \
   --export=ALL,OELLM_RUN_ROOT="$OELLM_RUN_ROOT",EVAL_ROOT="$EVAL_ROOT",EVAL_MATRIX="$MATRIX",EVAL_LIMIT="$EVAL_LIMIT" \
   slurm/eval_lumi.sbatch)
@@ -63,8 +67,11 @@ kind=$EVAL_KIND
 rows=$ROWS
 max_concurrent=$EVAL_MAX_CONCURRENT
 limit=$EVAL_LIMIT
+partition=$EVAL_PARTITION
+time_limit=$EVAL_TIME
 config=$CONFIG
 matrix=$MATRIX
 manifest=$MANIFEST
 EOF
-printf 'job_id=%s\neval_root=%s\nrows=%s\n' "$JOB_ID" "$EVAL_ROOT" "$ROWS"
+printf 'job_id=%s\neval_root=%s\nrows=%s\npartition=%s\ntime_limit=%s\n' \
+  "$JOB_ID" "$EVAL_ROOT" "$ROWS" "$EVAL_PARTITION" "$EVAL_TIME"
