@@ -1,0 +1,85 @@
+version: reasoning-v1-checkpoint-selection
+description: Deterministic, chat-templated checkpoint selection for reasoning-v1.
+seed: 20260821
+harness:
+  name: lm-evaluation-harness
+  version: 0.4.11
+  container: /pfs/lustrep4/scratch/project_462000963/oellm-cli-shared-evals/eval_env-lumi.sif
+  transformers: 5.2.0
+  torch: 2.7.1+rocm6.4.1.git2a215e4a
+  dtype: bfloat16
+  batch_size: 1
+  apply_chat_template: true
+  do_sample: false
+
+models:
+  - id: baseline
+    role: starting_sft_checkpoint
+    path: artifacts/models/oellm-9b-256k-sft
+  - id: step-0500
+    role: reasoning_candidate
+    path: artifacts/checkpoints/reasoning-v1/checkpoint-500
+  - id: step-1000
+    role: reasoning_candidate
+    path: artifacts/checkpoints/reasoning-v1/checkpoint-1000
+  - id: step-1500
+    role: reasoning_candidate
+    path: artifacts/checkpoints/reasoning-v1/checkpoint-1500
+  - id: step-2000
+    role: reasoning_candidate
+    path: artifacts/checkpoints/reasoning-v1/checkpoint-2000
+
+tasks:
+  - id: gsm8k
+    capability: math
+    dataset: openai/gsm8k
+    num_fewshot: 4
+    max_gen_toks: 2048
+    primary_metrics: ["exact_match,strict-match", "exact_match,flexible-extract"]
+  - id: hendrycks_math500
+    capability: math
+    dataset: HuggingFaceH4/MATH-500
+    num_fewshot: 0
+    max_gen_toks: 8192
+    primary_metrics: ["exact_match,none"]
+  - id: gpqa_diamond_cot_zeroshot
+    capability: scientific_reasoning
+    dataset: Idavidrein/gpqa
+    dataset_subset: gpqa_diamond
+    num_fewshot: 0
+    max_gen_toks: 4096
+    primary_metrics: ["exact_match,strict-match", "exact_match,flexible-extract"]
+  - id: ifeval
+    capability: instruction_following
+    dataset: google/IFEval
+    num_fewshot: 0
+    max_gen_toks: 1280
+    primary_metrics: ["prompt_level_strict_acc,none", "inst_level_strict_acc,none"]
+  - id: mbpp
+    capability: code
+    dataset: google-research-datasets/mbpp
+    dataset_subset: full
+    num_fewshot: 3
+    max_gen_toks: 2048
+    primary_metrics: ["pass_at_1,none"]
+  - id: mgsm_native_cot_de
+    capability: multilingual_math
+    language: de
+    dataset: juletxara/mgsm
+    num_fewshot: 0
+    max_gen_toks: 2048
+    primary_metrics: ["exact_match,strict-match", "exact_match,flexible-extract"]
+  - id: mgsm_native_cot_es
+    capability: multilingual_math
+    language: es
+    dataset: juletxara/mgsm
+    num_fewshot: 0
+    max_gen_toks: 2048
+    primary_metrics: ["exact_match,strict-match", "exact_match,flexible-extract"]
+  - id: mgsm_native_cot_fr
+    capability: multilingual_math
+    language: fr
+    dataset: juletxara/mgsm
+    num_fewshot: 0
+    max_gen_toks: 2048
+    primary_metrics: ["exact_match,strict-match", "exact_match,flexible-extract"]
