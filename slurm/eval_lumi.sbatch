@@ -35,13 +35,16 @@ if [[ -z "$ROW" ]]; then
 fi
 IFS=$'\t' read -r MODEL_ID MODEL_PATH TASK CAPABILITY NUM_FEWSHOT MAX_GEN_TOKS <<< "$ROW"
 
-for required in "$MODEL_PATH/config.json" "$MODEL_PATH/tokenizer_config.json" \
-  "$MODEL_PATH/model.safetensors"; do
+for required in "$MODEL_PATH/config.json" "$MODEL_PATH/tokenizer_config.json"; do
   if [[ ! -s "$required" ]]; then
     echo "Missing model artifact: $required" >&2
     exit 2
   fi
 done
+if ! compgen -G "$MODEL_PATH/model*.safetensors" > /dev/null; then
+  echo "No model safetensors found under $MODEL_PATH" >&2
+  exit 2
+fi
 
 RESULT_DIR=$EVAL_ROOT/results/$MODEL_ID/$TASK
 mkdir -p "$RESULT_DIR" "$EVAL_ROOT/jobs" logs
@@ -110,4 +113,3 @@ with open(path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)
     handle.write("\n")
 PY
-

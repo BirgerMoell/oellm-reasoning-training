@@ -50,12 +50,11 @@ def main() -> None:
         if not selected(model["id"], model_filter):
             continue
         model_path = args.root / model["path"]
-        required = [
-            model_path / "config.json",
-            model_path / "tokenizer_config.json",
-            model_path / "model.safetensors",
-        ]
+        required = [model_path / "config.json", model_path / "tokenizer_config.json"]
         missing = [str(path) for path in required if not path.is_file()]
+        weight_files = sorted(model_path.glob("model*.safetensors"))
+        if not weight_files:
+            missing.append(f"{model_path}/model*.safetensors")
         if missing:
             raise SystemExit(f"missing model files for {model['id']}: {missing}")
         resolved_models.append(
@@ -111,4 +110,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
