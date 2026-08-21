@@ -1,0 +1,3 @@
+# Extra task dependencies absent from the pinned lm-evaluation-harness container.
+immutabledict==4.2.1
+langdetect==1.0.9

@@ -21,6 +21,7 @@ set -euo pipefail
 CONTAINER=/pfs/lustrep4/scratch/project_462000963/oellm-cli-shared-evals/eval_env-lumi.sif
 HF_HOME=$OELLM_RUN_ROOT/eval/hf-cache
 HF_DATASETS_CACHE=$HF_HOME/datasets
+EVAL_PYTHONPATH=$OELLM_RUN_ROOT/eval/python
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 
 if [[ ! -s "$EVAL_MATRIX" ]]; then
@@ -70,7 +71,7 @@ EOF
 
 export HF_HOME HF_DATASETS_CACHE
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1
-export PYTHONNOUSERSITE=1 TOKENIZERS_PARALLELISM=false
+export PYTHONNOUSERSITE=1 PYTHONPATH=$EVAL_PYTHONPATH TOKENIZERS_PARALLELISM=false
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 LIMIT_ARGS=()
@@ -82,7 +83,7 @@ echo "model=$MODEL_ID task=$TASK fewshot=$NUM_FEWSHOT max_gen_toks=$MAX_GEN_TOKS
 srun singularity exec --rocm -B "$BIND" "$CONTAINER" env \
   HF_HOME="$HF_HOME" HF_DATASETS_CACHE="$HF_DATASETS_CACHE" \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 \
-  PYTHONNOUSERSITE=1 TOKENIZERS_PARALLELISM=false \
+  PYTHONNOUSERSITE=1 PYTHONPATH="$EVAL_PYTHONPATH" TOKENIZERS_PARALLELISM=false \
   python -m lm_eval run \
     --model hf \
     --model_args "pretrained=$MODEL_PATH,dtype=bfloat16,trust_remote_code=True" \

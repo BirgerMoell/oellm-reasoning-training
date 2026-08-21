@@ -15,6 +15,7 @@ EVAL_ROOT=${EVAL_ROOT:-$OELLM_RUN_ROOT/eval/reasoning-v1-$EVAL_KIND-$STAMP}
 MATRIX=$EVAL_ROOT/matrix.tsv
 MANIFEST=$EVAL_ROOT/matrix.manifest.json
 CONTAINER=/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif
+EVAL_CONTAINER=/pfs/lustrep4/scratch/project_462000963/oellm-cli-shared-evals/eval_env-lumi.sif
 OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 
@@ -41,6 +42,15 @@ if (( ROWS < 1 )); then
   echo "Evaluation matrix has no rows" >&2
   exit 2
 fi
+
+# Fail on the login node if a task or dataset is absent from the offline cache.
+HF_HOME=$OELLM_RUN_ROOT/eval/hf-cache \
+HF_DATASETS_CACHE=$OELLM_RUN_ROOT/eval/hf-cache/datasets \
+HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+PYTHONNOUSERSITE=1 PYTHONPATH=$OELLM_RUN_ROOT/eval/python \
+singularity exec -B "$BIND" "$EVAL_CONTAINER" \
+  python scripts/verify_eval_cache.py "$MATRIX"
+
 ARRAY_END=$(( ROWS - 1 ))
 JOB_ID=$(sbatch --parsable \
   --array="0-${ARRAY_END}%${EVAL_MAX_CONCURRENT}" \
@@ -58,4 +68,3 @@ matrix=$MATRIX
 manifest=$MANIFEST
 EOF
 printf 'job_id=%s\neval_root=%s\nrows=%s\n' "$JOB_ID" "$EVAL_ROOT" "$ROWS"
-
