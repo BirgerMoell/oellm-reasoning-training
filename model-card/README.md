@@ -59,15 +59,27 @@ inputs = tokenizer.apply_chat_template(
 ).to(model.device)
 
 with torch.inference_mode():
+    # Greedy decoding caused two of five published diagnostic examples to stall.
+    # This is an initial sampling setting, not a benchmark-selected optimum.
+    torch.manual_seed(0)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(0)
     output = model.generate(
         **inputs,
-        do_sample=False,
+        do_sample=True,
+        temperature=0.6,
+        top_p=0.95,
         max_new_tokens=512,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.pad_token_id,
     )
 print(tokenizer.decode(output[0, inputs["input_ids"].shape[1]:], skip_special_tokens=True))
 ```
+
+The sampling values above are a literature-informed starting point to reduce greedy-loop risk. They
+have not yet been selected by a checkpoint-specific accuracy/loop-rate sweep; evaluate them for the
+target task. The verbatim diagnostics below deliberately retain greedy decoding as a reproducible
+stress test.
 
 The configuration retains `max_position_embeddings=262144` and RoPE theta 64,000,000. This stage
 trained at 16,384 tokens and did not re-evaluate long-context retrieval. Treat 262K as an
@@ -97,6 +109,26 @@ token counts, stop conditions, and per-output SHA-256 hashes, is in
 generations are reproduced below, together with the truncated Swedish trace requested for inspection.
 The French sample is retained in full in the JSON but is not duplicated here because it ends in a
 long repetition loop.
+
+### Why the repetition loops occur
+
+The two stalled examples used greedy decoding. Research on neural-text degeneration and reasoning
+models shows that greedy/low-temperature decoding can amplify a learned preference for an easy cyclic
+action—such as restating or re-checking—over a harder progress-making step. Once a phrase or reasoning
+state repeats, the generated prefix can reinforce the same continuation, and EOS may never become the
+highest-probability next token. Sampling can reduce looping by allowing escape, but it does not repair
+the underlying learning error.
+
+This checkpoint's mixture was 85.11% reasoning-source tokens, dominated by synthetic teacher traces,
+so transferred overthinking is a credible contributor; it is not proven to be the only cause. The
+corrected LUMI audit found 7 strict lexical-repetition candidates in a 25,351-row stratified sample
+(0.0276%); several strongest signatures are formula/translation patterns, so this does not support a
+simple theory that the model copied many literal prose loops. The repository contains the full
+checkpoint-specific causal assessment, primary-paper review, privacy-safe audit report, and
+decoder/training mitigation plan in
+[`docs/REPETITION_LOOPS.md`](https://github.com/BirgerMoell/oellm-reasoning-training/blob/main/docs/REPETITION_LOOPS.md).
+Keep this release experimental and measure answer accuracy together with loop rate before selecting a
+sampled or repetition-penalized inference configuration.
 
 <details>
 <summary><strong>English — correct, direct step-by-step output</strong></summary>

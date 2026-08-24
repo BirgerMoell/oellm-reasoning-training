@@ -19,6 +19,7 @@ RLVR, tool use, and safety training should consume its accepted checkpoint as se
 | Release status | **Experimental**: published for analysis and follow-on training; it did not pass the production-retention gates |
 | Primary finding | ARC-Challenge and flexible multilingual MGSM improved, while GSM8K, IFEval, and MMLU college computer science regressed |
 | Detailed provenance | [`runs/oellm-9b-256k-reasoning-v1-release.md`](runs/oellm-9b-256k-reasoning-v1-release.md) and the model card on Hugging Face |
+| Repetition-loop analysis | [`docs/REPETITION_LOOPS.md`](docs/REPETITION_LOOPS.md): checkpoint-specific evidence, primary papers, audit code, and mitigation experiments |
 
 ## Production plan at a glance
 
@@ -143,11 +144,13 @@ and one-node smoke gate both pass.
 | [`scripts/train_sft.py`](scripts/train_sft.py) | text-only TRL/FSDP training entry point |
 | [`scripts/validate_run.py`](scripts/validate_run.py) | fail-closed model, manifest, and data checks |
 | [`scripts/audit_source_capacity.py`](scripts/audit_source_capacity.py) | read-only eligible-token capacity audit for one or more recipe slices |
+| [`scripts/audit_repetition.py`](scripts/audit_repetition.py) | exact-loop, short-repetition, and reasoning-tag audit for public outputs and the selected training mix |
 | [`scripts/check_checkpoint_finite.py`](scripts/check_checkpoint_finite.py) | bounded-memory sampled or exhaustive safetensors finiteness audit |
 | [`scripts/write_run_record.py`](scripts/write_run_record.py) | started/completed YAML provenance for every training attempt |
 | [`slurm/`](slurm/) | LUMI data and GPU jobs |
 | [`docs/TRAINING_PLAN.md`](docs/TRAINING_PLAN.md) | stage rationale and detailed choices |
 | [`docs/EVALUATION.md`](docs/EVALUATION.md) | benchmark matrix and acceptance gates |
+| [`docs/REPETITION_LOOPS.md`](docs/REPETITION_LOOPS.md) | evidence-backed diagnosis and mitigation plan for reasoning loops |
 | [`docs/ARTIFACTS.md`](docs/ARTIFACTS.md) | artifact lineage and run-record contract |
 | [`runs/`](runs/) | executed LUMI gate records and observed metrics |
 

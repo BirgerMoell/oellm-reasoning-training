@@ -23,6 +23,13 @@ def test_short_warning_does_not_imply_strict_loop():
     assert not result.strict_loop_30gram_20x
 
 
+def test_markup_separators_are_not_classified_as_lexical_loops():
+    result = MODULE.analyze_text(("| " * 1_000) + ("- " * 1_000))
+    assert result.normalized_tokens == 0
+    assert not result.short_repetition_8gram_4x
+    assert not result.strict_loop_30gram_20x
+
+
 def test_think_tag_statuses():
     assert MODULE.think_tag_status("plain answer") == "no_think_tags"
     assert MODULE.think_tag_status("<think>unfinished") == "unclosed_think"

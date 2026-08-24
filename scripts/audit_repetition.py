@@ -20,7 +20,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]", flags=re.UNICODE)
+# Lexical tokens avoid classifying long Markdown/LaTeX separator runs as prose
+# loops. This deliberately differs from model-token n-grams and is documented
+# as a threshold-aligned project metric rather than a paper-exact reproduction.
+TOKEN_PATTERN = re.compile(r"\w+", flags=re.UNICODE)
 STRICT_NGRAM = 30
 STRICT_COUNT = 20
 SHORT_NGRAM = 8
@@ -106,7 +109,19 @@ def percentile(values: list[float], quantile: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
-def summarize(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
+def serialized_metrics(metric: TextMetrics, include_phrase: bool) -> dict[str, Any]:
+    result = asdict(metric)
+    phrase = result.pop("max_8gram")
+    if include_phrase:
+        result["max_8gram"] = phrase
+    else:
+        result["max_8gram_sha256"] = (
+            hashlib.sha256(phrase.encode("utf-8")).hexdigest() if phrase else None
+        )
+    return result
+
+
+def summarize(records: Iterable[dict[str, Any]], *, include_phrases: bool = False) -> dict[str, Any]:
     rows = list(records)
     metrics = [row["metrics"] for row in rows]
     statuses = Counter(metric.think_tag_status for metric in metrics)
@@ -142,7 +157,7 @@ def summarize(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "highest_repetition_examples": [
             {
                 **{key: value for key, value in row.items() if key != "metrics"},
-                "metrics": asdict(row["metrics"]),
+                "metrics": serialized_metrics(row["metrics"], include_phrases),
             }
             for row in examples
         ],
@@ -176,9 +191,12 @@ def audit_examples(path: Path) -> dict[str, Any]:
     return {
         "path": str(path),
         "sha256": sha256_file(path),
-        "summary": summarize(records),
+        "summary": summarize(records, include_phrases=True),
         "examples": [
-            {**{key: value for key, value in row.items() if key != "metrics"}, "metrics": asdict(row["metrics"])}
+            {
+                **{key: value for key, value in row.items() if key != "metrics"},
+                "metrics": serialized_metrics(row["metrics"], include_phrase=True),
+            }
             for row in records
         ],
     }
@@ -218,6 +236,26 @@ def audit_parquet(path: Path, manifest_path: Path, max_per_source_language: int)
                 )
                 sample_counts[key] += 1
             global_index += 1
+        if global_index % (100 * 1024) == 0:
+            print(
+                f"[audit] scanned {global_index:,} rows; sampled {len(records):,}",
+                flush=True,
+            )
+
+    expected_rows = int(manifest["selected_rows"])
+    if global_index != expected_rows:
+        raise RuntimeError(f"Parquet row count mismatch: {global_index:,} != {expected_rows:,}")
+    expected_by_source = {
+        str(source["id"]): int(source["selected_rows"]) for source in manifest["sources"]
+    }
+    actual_by_source = Counter()
+    for (source, _language), count in total_counts.items():
+        actual_by_source[source] += count
+    if dict(actual_by_source) != expected_by_source:
+        raise RuntimeError(
+            f"Parquet source counts differ from manifest: {dict(actual_by_source)} != "
+            f"{expected_by_source}"
+        )
 
     by_source: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     by_source_language: defaultdict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -274,7 +312,7 @@ def main() -> None:
         "definitions": {
             "strict_loop": "any normalized 30-gram occurs at least 20 times",
             "short_repetition_warning": "any normalized 8-gram occurs at least 4 times",
-            "repetition_4": "1 - unique normalized 4-grams / total normalized 4-grams",
+            "repetition_4": "1 - unique lexical 4-grams / total lexical 4-grams",
         },
     }
     if args.examples:

@@ -16,6 +16,7 @@ judge model must score the baseline and candidate. Store raw generations and tas
 | safety | the same safety/refusal set used for the SFT baseline | safe/helpful classification |
 | long context | natural-word NIAH at 8K/32K/128K/256K; RULER 4K–64K | exact retrieval / aggregate |
 | format | 500 mixed prompts | valid turn termination, no template tokens in visible text |
+| reasoning stability | at least 500 difficult multilingual prompts across greedy and sampled decoding | exact/semantic loop rate, EOS rate, cap exhaustion, tokens per correct answer |
 
 Do not add benchmark training examples to the mixture after baseline evaluation. The pinned OpenEuroLLM
 datasets already remove matches against the core suite; keep their decontamination metadata in the run
@@ -63,6 +64,12 @@ Maintain two tracks:
 
 Set generation EOS to `<end_of_turn>`. Cap outputs by task rather than using one short universal cap;
 reasoning can appear worse solely because the final answer was truncated.
+
+Greedy remains a required diagnostic control, not the assumed deployment default. Run a fixed-seed
+temperature/top-p matrix and score correctness alongside repetition. Use the exact 30-gram/20-occurrence
+definition for comparison with reasoning-loop literature, plus a separately labeled shorter-span warning
+and semantic no-progress review. See [`REPETITION_LOOPS.md`](REPETITION_LOOPS.md) for definitions, the
+LUMI audit command, and the proposed mitigation experiment.
 
 ## Required outputs
 

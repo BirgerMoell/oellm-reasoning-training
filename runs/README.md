@@ -6,6 +6,7 @@ locations and provenance needed to inspect them.
 
 | Date | Job | Purpose | Result |
 |---|---:|---|---|
+| 2026-08-24 | [`21493302`](21493302-repetition-audit.md) | full-row scan and stratified lexical repetition audit | passed; 7 strict candidates in 25,351 analyzed rows; punctuation false-positive mode corrected |
 | 2026-08-24 | [`21492473`](oellm-9b-256k-reasoning-v1-release.md) | BF16 release validation and Hugging Face publication | passed; public experimental model published |
 | 2026-08-19 | [`21366870`](21366870-reasoning-v1.md) | full reasoning-v1 production training | completed; step 2,000 selected for experimental release |
 | 2026-08-18 | [`21352067` group](21352067-source-capacity-audits.md) | math/code/STEM one-pass capacity audits | passed; capacity-safe quotas established |
