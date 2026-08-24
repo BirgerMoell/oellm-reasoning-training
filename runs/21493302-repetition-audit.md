@@ -33,6 +33,10 @@ The same privacy-safe report is committed as
 [`21493302-repetition-audit.json`](21493302-repetition-audit.json). It includes public model-example
 phrases but replaces training-data repeated spans with SHA-256 signatures.
 
+The concise diagnosis, corrected audit result, safer sampled usage example, and link to the complete
+analysis were published to the existing public Hugging Face model card in commit
+`e74926a1a82aab4da307b9526bd5fe4fa5d15c20`. Only `README.md` changed; model weights were untouched.
+
 ## Method
 
 - scan all 1,130,994 rows to verify source/language population counts;
