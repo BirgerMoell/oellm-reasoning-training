@@ -8,6 +8,18 @@ mixture, launches the tested TRL/FSDP stack, and records every artifact needed t
 This repository owns one stage: **reasoning SFT after instruction SFT**. Preference optimization,
 RLVR, tool use, and safety training should consume its accepted checkpoint as separate stages.
 
+## Published checkpoint
+
+| Field | Value |
+|---|---|
+| Model | [`birgermoell/oellm-9b-256k-reasoning-v1`](https://huggingface.co/birgermoell/oellm-9b-256k-reasoning-v1) |
+| Checkpoint | reasoning-v1 step 2,000, unquantized BF16 |
+| Training | LUMI job `21366870`, completed in 10:36:12 on 64 MI250X GCDs |
+| Release validation | LUMI job `21492473`, passed GPU load/generation and an exhaustive scan of 9,101,947,904 values |
+| Release status | **Experimental**: published for analysis and follow-on training; it did not pass the production-retention gates |
+| Primary finding | ARC-Challenge and flexible multilingual MGSM improved, while GSM8K, IFEval, and MMLU college computer science regressed |
+| Detailed provenance | [`runs/oellm-9b-256k-reasoning-v1-release.md`](runs/oellm-9b-256k-reasoning-v1-release.md) and the model card on Hugging Face |
+
 ## Production plan at a glance
 
 | Item | Decision |
@@ -115,8 +127,9 @@ and one-node smoke gate both pass.
 6. **Train.** Run 2,000 packed 16K updates on eight nodes, retaining all eight resumable
    250-step checkpoints so evaluation milestones are not deleted.
 7. **Evaluate.** Compare the SFT baseline and reasoning candidate on the same prompts and decoding.
-8. **Publish only an accepted checkpoint.** Preserve the input revision, data manifest, config, Slurm
-   job IDs, logs, metrics, and output SHA in the run record.
+8. **Classify and publish deliberately.** Preserve the input revision, data manifest, config, Slurm
+   job IDs, logs, metrics, and output SHA in the run record. A checkpoint that misses retention gates
+   must be clearly labeled experimental rather than presented as a production upgrade.
 
 ## Repository map
 
