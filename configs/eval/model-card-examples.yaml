@@ -1,0 +1,40 @@
+schema_version: 1
+generation:
+  seed: 20260824
+  do_sample: false
+  max_new_tokens: 768
+examples:
+  - id: notebook-change-en
+    language: en
+    prompt: >-
+      A shop sells notebooks for €4.50 each. Lina buys 3 notebooks and also pays €2.25
+      for a pen. She pays with €20. How much change should she receive? Reason step by
+      step, then clearly state the final answer.
+    reference_answer: "€4.25"
+  - id: marble-probability-sv
+    language: sv
+    prompt: >-
+      En låda innehåller 18 röda och 12 blå kulor. En kula dras slumpmässigt. Vad är
+      sannolikheten att kulan är blå? Svara både som ett förkortat bråk och i procent.
+      Resonera steg för steg och ange sedan slutsvaret tydligt.
+    reference_answer: "2/5 = 40 %"
+  - id: train-distance-de
+    language: de
+    prompt: >-
+      Ein Zug fährt mit gleichbleibender Geschwindigkeit 90 km in 1,5 Stunden. Wie weit
+      fährt er in 40 Minuten? Begründe deine Rechnung Schritt für Schritt und nenne dann
+      das Endergebnis klar.
+    reference_answer: "40 km"
+  - id: linear-equation-fr
+    language: fr
+    prompt: >-
+      Résous l’équation 3(x − 2) + 5 = 20. Montre les étapes, vérifie la solution dans
+      l’équation d’origine, puis donne clairement la réponse finale.
+    reference_answer: "x = 7"
+  - id: animals-legs-es
+    language: es
+    prompt: >-
+      En una granja hay gallinas y conejos. En total hay 14 cabezas y 40 patas. ¿Cuántos
+      conejos y cuántas gallinas hay? Razona paso a paso y termina con una respuesta final
+      clara.
+    reference_answer: "6 conejos y 8 gallinas"
