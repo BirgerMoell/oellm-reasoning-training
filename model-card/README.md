@@ -94,8 +94,9 @@ The complete unabridged artifact, including all five prompts, raw outputs, parse
 token counts, stop conditions, and per-output SHA-256 hashes, is in
 [`examples.json`](examples.json) (file SHA-256
 `890cac7bcf2048f0db852ba8a356a2ec4809a959d5e264365d5523a1c99f4c37`). The three complete
-generations are reproduced below. The Swedish and French samples are retained in full in the JSON
-but are not duplicated here because both end in long repetition loops.
+generations are reproduced below, together with the truncated Swedish trace requested for inspection.
+The French sample is retained in full in the JSON but is not duplicated here because it ends in a
+long repetition loop.
 
 <details>
 <summary><strong>English — correct, direct step-by-step output</strong></summary>
@@ -115,6 +116,35 @@ So she pays a total of €13.50 + €2.25 = €15.75.
 She pays with €20, so she receives €20 - €15.75 = €4.25 change.
 Thus, Lina should receive \boxed{4.25} euros in change.
 ```
+
+</details>
+
+<details>
+<summary><strong>Swedish — truncated explicit reasoning trace, no final answer</strong></summary>
+
+**Prompt**
+
+> En låda innehåller 18 röda och 12 blå kulor. En kula dras slumpmässigt. Vad är sannolikheten att kulan är blå? Svara både som ett förkortat bråk och i procent. Resonera steg för steg och ange sedan slutsvaret tydligt.
+
+**Verbatim `<think>` reasoning trace**
+
+The generation reached the 768-token limit before emitting `</think>` or a separate answer.
+
+```text
+Okay, let's see. The problem is about finding the probability that a randomly drawn ball is blue from a box with 18 red and 12 blue balls. Hmm, probability questions can be tricky, but let me break it down step by step.
+
+First, I need to figure out the total number of balls in the box. The question says there are 18 red and 12 blue. So, adding those together gives 18 + 12 = 30 balls in total. That's the denominator in the probability fraction.
+
+Now, the numerator is the number of blue balls. The problem states there are 12 blue balls. So, the probability should be 12 divided by 30. Let me write that as a fraction: 12/30.
+
+Wait, but the question asks for the probability both as a fraction and in percentage. So, first, I need to convert the fraction to a percentage. To do that, I can multiply the fraction by 100. So, 12/30 times 100. Let me calculate that. 12 times 100 is 1200, and 30 times 100 is 3000. So, 1200/3000 simplifies to 60/150, which is 3/7.5. Wait, that can't be right. Wait, 1200 divided by 3000 is 60/150, which is 3/7.5. But 3/7.5 is the same as 6/15, which is 2/5. Hmm, maybe I made a mistake here. Let me check again.
+
+Wait, 12/30 is 0.4, which is 40%. So, 12/30 is 40%? Wait, no. Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40%? Wait, 12 divided by 30 is 0.4, which is 40
+```
+
+The trace reaches the correct value `12/30 = 0.4 = 40%`, but then enters a repetition loop. The
+reference answer is `2/5 = 40%`; the model did not produce a completed final-answer segment. The
+visible reasoning also switches to English even though the user prompt is Swedish.
 
 </details>
 
