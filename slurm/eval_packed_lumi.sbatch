@@ -4,9 +4,9 @@
 #SBATCH --partition=standard-g
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=8
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=28
-#SBATCH --mem=0
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=56
+#SBATCH --mem=480G
 #SBATCH --time=1-00:00:00
 #SBATCH --output=logs/eval-packed-%j.out
 #SBATCH --error=logs/eval-packed-%j.err
@@ -29,7 +29,7 @@ mkdir -p "$EVAL_ROOT/packed-logs" logs
 pids=()
 for row in "${ROWS[@]}"; do
   log_prefix=$EVAL_ROOT/packed-logs/${SLURM_JOB_ID}-row-${row}
-  srun --exclusive --ntasks=1 --cpus-per-task=28 --gpus-per-task=1 --gpu-bind=single:1 \
+  srun --exclusive --ntasks=1 --cpus-per-task=14 --gpus-per-task=1 --gpu-bind=single:1 \
     env EVAL_ROW_INDEX="$row" EVAL_JOB_TAG="${SLURM_JOB_ID}_packed_${row}" \
     scripts/run_eval_row_lumi.sh >"${log_prefix}.out" 2>"${log_prefix}.err" &
   pids+=("$!")
