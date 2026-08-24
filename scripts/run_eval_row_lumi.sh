@@ -1,20 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=oellm-reason-eval
-#SBATCH --account=project_465002530
-#SBATCH --partition=small-g
-#SBATCH --nodes=1
-#SBATCH --gpus-per-node=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=128G
-#SBATCH --time=0-12:00:00
-#SBATCH --output=logs/eval-%A_%a.out
-#SBATCH --error=logs/eval-%A_%a.err
-
+# Run one zero-based row from an evaluation matrix inside an existing GPU step.
 set -euo pipefail
 
 : "${EVAL_MATRIX:?Set EVAL_MATRIX to the generated TSV}"
 : "${EVAL_ROOT:?Set EVAL_ROOT to an isolated output directory}"
+: "${EVAL_ROW_INDEX:?Set EVAL_ROW_INDEX to a zero-based matrix row}"
+: "${EVAL_JOB_TAG:?Set EVAL_JOB_TAG to a unique Slurm/job identifier}"
 : "${OELLM_RUN_ROOT:=/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts}"
 : "${EVAL_LIMIT:=}"
 
@@ -24,31 +15,23 @@ HF_DATASETS_CACHE=$HF_HOME/datasets
 EVAL_PYTHONPATH=$OELLM_RUN_ROOT/eval/python
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 
-if [[ ! -s "$EVAL_MATRIX" ]]; then
-  echo "Missing or empty evaluation matrix: $EVAL_MATRIX" >&2
-  exit 2
-fi
-
-ROW=$(sed -n "$((SLURM_ARRAY_TASK_ID + 2))p" "$EVAL_MATRIX")
+ROW=$(sed -n "$((EVAL_ROW_INDEX + 2))p" "$EVAL_MATRIX")
 if [[ -z "$ROW" ]]; then
-  echo "No matrix row for array index $SLURM_ARRAY_TASK_ID" >&2
+  echo "No matrix row for index $EVAL_ROW_INDEX" >&2
   exit 2
 fi
 IFS=$'\t' read -r MODEL_ID MODEL_PATH TASK CAPABILITY NUM_FEWSHOT MAX_GEN_TOKS <<< "$ROW"
 
 for required in "$MODEL_PATH/config.json" "$MODEL_PATH/tokenizer_config.json"; do
-  if [[ ! -s "$required" ]]; then
-    echo "Missing model artifact: $required" >&2
-    exit 2
-  fi
+  [[ -s "$required" ]] || { echo "Missing model artifact: $required" >&2; exit 2; }
 done
-if ! compgen -G "$MODEL_PATH/model*.safetensors" > /dev/null; then
+compgen -G "$MODEL_PATH/model*.safetensors" >/dev/null || {
   echo "No model safetensors found under $MODEL_PATH" >&2
   exit 2
-fi
+}
 
 RESULT_DIR=$EVAL_ROOT/results/$MODEL_ID/$TASK
-mkdir -p "$RESULT_DIR" "$EVAL_ROOT/jobs" logs
+mkdir -p "$RESULT_DIR" "$EVAL_ROOT/jobs" "$EVAL_ROOT/packed-logs"
 if find "$RESULT_DIR" -type f -name 'results_*.json' -print -quit | grep -q .; then
   echo "Refusing to overwrite completed result: $RESULT_DIR" >&2
   exit 2
@@ -60,10 +43,11 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
-cat > "$EVAL_ROOT/jobs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.json" <<EOF
+JOB_JSON=$EVAL_ROOT/jobs/${EVAL_JOB_TAG}.json
+cat > "$JOB_JSON" <<EOF
 {
-  "array_job_id": "$SLURM_ARRAY_JOB_ID",
-  "array_task_id": "$SLURM_ARRAY_TASK_ID",
+  "job_tag": "$EVAL_JOB_TAG",
+  "matrix_row": $EVAL_ROW_INDEX,
   "model_id": "$MODEL_ID",
   "model_path": "$MODEL_PATH",
   "task": "$TASK",
@@ -78,15 +62,12 @@ EOF
 export HF_HOME HF_DATASETS_CACHE
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1
 export PYTHONNOUSERSITE=1 PYTHONPATH=$EVAL_PYTHONPATH TOKENIZERS_PARALLELISM=false
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-28}
 LIMIT_ARGS=()
-if [[ -n "$EVAL_LIMIT" ]]; then
-  LIMIT_ARGS+=(--limit "$EVAL_LIMIT")
-fi
+[[ -z "$EVAL_LIMIT" ]] || LIMIT_ARGS+=(--limit "$EVAL_LIMIT")
 
-echo "model=$MODEL_ID task=$TASK fewshot=$NUM_FEWSHOT max_gen_toks=$MAX_GEN_TOKS"
-srun singularity exec --rocm -B "$BIND" "$CONTAINER" env \
+echo "row=$EVAL_ROW_INDEX model=$MODEL_ID task=$TASK fewshot=$NUM_FEWSHOT"
+singularity exec --rocm -B "$BIND" "$CONTAINER" env \
   HF_HOME="$HF_HOME" HF_DATASETS_CACHE="$HF_DATASETS_CACHE" \
   HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 \
   PYTHONNOUSERSITE=1 PYTHONPATH="$EVAL_PYTHONPATH" TOKENIZERS_PARALLELISM=false \
@@ -106,7 +87,7 @@ srun singularity exec --rocm -B "$BIND" "$CONTAINER" env \
     --seed 20260821 \
     "${LIMIT_ARGS[@]}"
 
-python3 - "$EVAL_ROOT/jobs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.json" <<'PY'
+python3 - "$JOB_JSON" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
