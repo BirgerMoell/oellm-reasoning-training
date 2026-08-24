@@ -26,5 +26,9 @@ srun singularity exec --rocm -B "$BIND" "$CONTAINER" bash -lc "
   export PYTHONPATH=$OVERLAY:\${PYTHONPATH:-}
   cd $SLURM_SUBMIT_DIR
   python3 scripts/validate_release.py '$RELEASE_DIR' --gpu-smoke
-  python3 scripts/check_checkpoint_finite.py '$RELEASE_DIR' --full-scan --chunk-elements 4194304
+  python3 scripts/check_checkpoint_finite.py '$RELEASE_DIR' \
+    --full \
+    --max-chunk-values 4194304 \
+    --expected-tensors 399 \
+    --expected-values 9101947904
 "
