@@ -58,6 +58,17 @@ Release-validation job `21492473` completed with exit `0:0` on a LUMI-G GPU. It 
 The original full-precision step-2,000 checkpoint was separately scanned by job `21426582`, which
 also found zero non-finite values across the same 399 tensors and 9,101,947,904 values.
 
+## Verbatim example generation
+
+LUMI job `21492664` completed with exit `0:0` and generated five fixed, independently decoded
+English, Swedish, German, French, and Spanish reasoning examples from the published BF16 artifact.
+It used the native chat template, greedy decoding, seed `20260824`, and at most 768 new tokens. The
+unabridged artifact is committed as `model-card/examples.json` with SHA-256
+`890cac7bcf2048f0db852ba8a356a2ec4809a959d5e264365d5523a1c99f4c37`; the model card includes a
+manual correctness assessment and three complete verbatim outputs. The examples expose both a
+correct English calculation and the looping/unit-reasoning failures consistent with the benchmark
+regressions, rather than presenting only favorable generations.
+
 ## Evaluation interpretation
 
 The release model card contains the complete parent-versus-candidate table and protocol. The measured

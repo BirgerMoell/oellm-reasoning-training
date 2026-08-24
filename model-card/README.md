@@ -74,6 +74,116 @@ trained at 16,384 tokens and did not re-evaluate long-context retrieval. Treat 2
 architectural limit, not a demonstrated reasoning length for this checkpoint. Inference near the
 limit requires substantial multi-GPU KV-cache memory.
 
+## Verbatim reasoning examples
+
+These are deterministic outputs from this exact published BF16 checkpoint, generated on an AMD
+MI250X by LUMI job `21492664`. Each prompt was run independently with the native chat template, no
+system prompt, greedy decoding (`do_sample=False`), seed `20260824`, and a limit of 768 new tokens.
+The prompts were fixed before generation. The assessment column was added by manually checking the
+output against the reference answer; outputs were not edited to make the model look better.
+
+| Language / task | Reference answer | Observed result | Assessment |
+|---|---|---|---|
+| English, purchase/change | €4.25 | €4.25; stopped after 121 tokens | **Correct** |
+| Swedish, probability | `2/5 = 40 %` | derived `12/30 = 0.4 = 40%`, then repeated itself until the 768-token limit without a final answer | **Incomplete** |
+| German, rate/distance | 40 km | 8,100 km | **Incorrect**; misread 90 km in 1.5 hours as 90 km/h and mixed hours with minutes |
+| French, linear equation | `x = 7` | derived `x = 7`, then made an arithmetic error while checking it and looped until the limit | **Incomplete / unstable** |
+| Spanish, heads/legs | 6 rabbits and 8 chickens | 3 rabbits and 8 chickens; final box contained only `3` | **Incorrect** |
+
+The complete unabridged artifact, including all five prompts, raw outputs, parsed traces/answers,
+token counts, stop conditions, and per-output SHA-256 hashes, is in
+[`examples.json`](examples.json) (file SHA-256
+`890cac7bcf2048f0db852ba8a356a2ec4809a959d5e264365d5523a1c99f4c37`). The three complete
+generations are reproduced below. The Swedish and French samples are retained in full in the JSON
+but are not duplicated here because both end in long repetition loops.
+
+<details>
+<summary><strong>English — correct, direct step-by-step output</strong></summary>
+
+**Prompt**
+
+> A shop sells notebooks for €4.50 each. Lina buys 3 notebooks and also pays €2.25 for a pen. She
+> pays with €20. How much change should she receive? Reason step by step, then clearly state the
+> final answer.
+
+**Verbatim model output**
+
+```text
+Lina buys 3 notebooks for €4.50 each, so she pays €4.50 * 3 = €13.50.
+She also pays €2.25 for a pen.
+So she pays a total of €13.50 + €2.25 = €15.75.
+She pays with €20, so she receives €20 - €15.75 = €4.25 change.
+Thus, Lina should receive \boxed{4.25} euros in change.
+```
+
+</details>
+
+<details>
+<summary><strong>German — complete explicit reasoning trace, incorrect answer</strong></summary>
+
+**Prompt**
+
+> Ein Zug fährt mit gleichbleibender Geschwindigkeit 90 km in 1,5 Stunden. Wie weit fährt er in
+> 40 Minuten? Begründe deine Rechnung Schritt für Schritt und nenne dann das Endergebnis klar.
+
+**Verbatim `<think>` reasoning trace**
+
+```text
+Okay, let's see. The problem is about a train traveling at a constant speed of 90 km/h for 1.5 hours. I need to find out how far it goes in 40 minutes. Hmm, first, I should convert the time from hours to minutes because the speed is given in km/h, and the time is in hours. Right, 1 hour is 60 minutes, so 1.5 hours is 1.5 multiplied by 60. Let me calculate that. 1.5 times 60 is 90 minutes. So the time is 90 minutes.
+
+Now, the distance is speed multiplied by time. So 90 km/h times 90 minutes. Let me do that multiplication. 90 times 90. Let's see, 90 times 100 is 9000, but since it's 90 times 90, that's 8100. Wait, 90 times 90 is 8100. So the distance is 8100 km. Let me check that again. 90 times 90: 90*90. 90*100 is 9000, minus 90*10 is 900, so 9000 - 900 is 8100. Yeah, that's right.
+
+So the answer should be 8100 km. Let me make sure I didn't make any mistakes in the conversion or the calculation. The time was converted correctly from 1.5 hours to 90 minutes. Then the speed is 90 km/h, multiplied by 90 minutes. The calculation seems straightforward. I think that's right.
+```
+
+**Verbatim answer after `</think>`**
+
+```text
+Der Zug fährt mit einer konstanten Geschwindigkeit von 90 km/h für 1,5 Stunden. Um die Zeit in Minuten umzurechnen, multipliziere man 1,5 Stunden mit 60 Minuten/Stunde: 1,5 × 60 = 90 Minuten. Die Distanz ist die Geschwindigkeit (90 km/h) mal die Zeit (90 Minuten). Berechne 90 × 90: 90 × 100 = 9000, minus 90 × 10 = 900, also 8100 km.
+
+**Antwort:** Der Zug fährt **8100 km** in 40 Minuten.
+```
+
+The correct calculation is `(90 km / 90 min) × 40 min = 40 km`.
+
+</details>
+
+<details>
+<summary><strong>Spanish — structured reasoning without think tags, incorrect answer</strong></summary>
+
+**Prompt**
+
+> En una granja hay gallinas y conejos. En total hay 14 cabezas y 40 patas. ¿Cuántos conejos y
+> cuántas gallinas hay? Razona paso a paso y termina con una respuesta final clara.
+
+**Verbatim model output**
+
+```text
+## Paso 1: Determinar el número de patas de las gallinas y los conejos.
+Hay 14 cabezas en total, y cada gallina tiene 2 patas y cada conejo tiene 4 patas.
+
+## Paso 2: Calcular el número total de patas.
+Primero, calcule el número total de patas de las gallinas: 14 gallinas * 2 patas/gallina = 28 patas.
+Luego, calcule el número total de patas de los conejos: 40 patas - 28 patas (de las gallinas) = 12 patas.
+
+## Paso 3: Calcular el número de conejos.
+Cada conejo tiene 4 patas, por lo que el número total de conejos es 12 patas / 4 patas/conejo = 3 conejos.
+
+## Paso 4: Calcular el número de gallinas.
+El número total de patas es 28 patas, y el número total de patas de las gallinas es 28 patas - 12 patas (de los conejos) = 16 patas.
+Cada gallina tiene 2 patas, por lo que el número total de gallinas es 16 patas / 2 patas/gallina = 8 gallinas.
+
+## Paso 5: Determinar el número total de conejos y gallinas.
+El número total de conejos es 3 y el número total de gallinas es 8.
+
+La respuesta final es: $\boxed{3}$
+```
+
+The correct simultaneous-equation solution is 6 rabbits and 8 chickens. The model's result also
+fails its own 14-head constraint.
+
+</details>
+
 ## Model lineage and architecture
 
 | Field | Value |
