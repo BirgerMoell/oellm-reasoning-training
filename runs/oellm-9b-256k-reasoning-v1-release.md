@@ -67,7 +67,8 @@ unabridged artifact is committed as `model-card/examples.json` with SHA-256
 `890cac7bcf2048f0db852ba8a356a2ec4809a959d5e264365d5523a1c99f4c37`; the model card includes a
 manual correctness assessment and three complete verbatim outputs. The examples expose both a
 correct English calculation and the looping/unit-reasoning failures consistent with the benchmark
-regressions, rather than presenting only favorable generations.
+regressions, rather than presenting only favorable generations. The card and raw artifact were
+published together in Hugging Face commit `f619dfb10288bc89a8728a8d675ade1c58502aea`.
 
 ## Evaluation interpretation
 
