@@ -71,6 +71,26 @@ definition for comparison with reasoning-loop literature, plus a separately labe
 and semantic no-progress review. See [`REPETITION_LOOPS.md`](REPETITION_LOOPS.md) for definitions, the
 LUMI audit command, and the proposed mitigation experiment.
 
+## Distributed MATH-500 on LUMI
+
+MATH-500 generations can reach the 8,192-token cap, so a single-process run takes longer than one normal
+LUMI job and must not reserve an eight-GCD node while using one GCD. Submit it with one model replica per
+GCD through:
+
+```bash
+MODEL_PATH=/scratch/.../checkpoint-500 \
+MODEL_ID=step-0500 \
+EVAL_ROOT=/scratch/.../eval/reasoning-v1-full-RUN \
+scripts/submit_math500_eval.sh
+```
+
+The launcher uses `accelerate` to divide the same frozen 500-example task across eight processes. It keeps
+the existing deterministic chat-template protocol, seed, batch size, and generation cap. A completed
+`results_*.json` makes an identical resubmission a no-op; an interrupted attempt retains its job record and
+logs but must rerun the task because lm-evaluation-harness writes the aggregate atomically at completion.
+Use `EVAL_LIMIT=8` for the distributed stack smoke before scheduling the full task. Never merge the
+cancelled single-process partial log into a score—it contains progress only, not a completed harness result.
+
 ## Required outputs
 
 For every model/task pair keep:
