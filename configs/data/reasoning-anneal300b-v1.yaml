@@ -26,6 +26,12 @@ model:
   revision: 85bf18fb4f0bee6ac6270f06b1d1c6b3be200f31
   local_name: oellm-9b-256k-anneal300b-instruct-sft
   chat_template: templates/oellm_qwen3_assistant_mask.jinja
+  special_token_ids:
+    turn_start: 3
+    turn_end: 4
+    think_end: 17
+    think_start: 18
+    pad: 262144
   expected:
     architecture: Qwen3ForCausalLM
     model_type: qwen3

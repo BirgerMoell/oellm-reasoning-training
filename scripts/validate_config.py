@@ -60,6 +60,14 @@ def validate_anneal300b() -> list[str]:
     expected = data["model"]["expected"]
     if expected.get("turn_end_token") != "<|im_end|>" or expected.get("eos_token") != "<eos>":
         errors.append("anneal300b model token invariants changed")
+    if data["model"].get("special_token_ids") != {
+        "turn_start": 3,
+        "turn_end": 4,
+        "think_end": 17,
+        "think_start": 18,
+        "pad": 262144,
+    }:
+        errors.append("anneal300b special-token IDs changed")
     template = ROOT / data["model"]["chat_template"]
     if not template.is_file():
         errors.append("anneal300b native assistant-mask template is missing")
