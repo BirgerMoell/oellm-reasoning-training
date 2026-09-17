@@ -15,6 +15,7 @@ def test_strict_loop_definition_detects_repeated_30gram():
     result = MODULE.analyze_text(" ".join([phrase] * 20))
     assert result.strict_loop_30gram_20x
     assert result.max_30gram_count >= 20
+    assert MODULE.has_repeated_ngram(" ".join([phrase] * 20), 30, 20)
 
 
 def test_short_warning_does_not_imply_strict_loop():

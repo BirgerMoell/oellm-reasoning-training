@@ -18,7 +18,7 @@ from typing import Any
 import yaml
 from datasets import Dataset, concatenate_datasets, load_dataset
 
-from audit_repetition import analyze_text
+from audit_repetition import STRICT_COUNT, STRICT_NGRAM, has_repeated_ngram
 from tokenizer_utils import load_local_tokenizer
 
 
@@ -122,7 +122,9 @@ def validate_reasoning_format(text: str, source: dict[str, Any]) -> str:
             return "empty_think"
         if not text[end + len("</think>") :].strip():
             return "missing_final_answer"
-    if source.get("reject_strict_repetition") and analyze_text(text).strict_loop_30gram_20x:
+    if source.get("reject_strict_repetition") and has_repeated_ngram(
+        text, STRICT_NGRAM, STRICT_COUNT
+    ):
         return "strict_repetition"
     return "ok"
 

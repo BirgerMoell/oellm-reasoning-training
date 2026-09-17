@@ -48,6 +48,21 @@ def ngram_counter(tokens: list[str], size: int) -> Counter[tuple[str, ...]]:
     return Counter(tuple(tokens[index : index + size]) for index in range(len(tokens) - size + 1))
 
 
+def has_repeated_ngram(text: str, size: int, count: int) -> bool:
+    """Return early once a lexical n-gram reaches the requested count."""
+
+    tokens = normalized_tokens(text)
+    if len(tokens) < size:
+        return False
+    seen: Counter[tuple[str, ...]] = Counter()
+    for index in range(len(tokens) - size + 1):
+        gram = tuple(tokens[index : index + size])
+        seen[gram] += 1
+        if seen[gram] >= count:
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class TextMetrics:
     normalized_tokens: int
