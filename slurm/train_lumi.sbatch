@@ -18,6 +18,15 @@ module purge
 : "${TRAIN_CONFIG:=configs/train/smoke.yaml}"
 : "${GPUS_PER_NODE:=8}"
 : "${RESUME_FROM_CHECKPOINT:=0}"
+: "${CHAT_TEMPLATE_FILE:=templates/oellm_gemma_assistant_mask.jinja}"
+
+if [[ "$CHAT_TEMPLATE_FILE" != /* ]]; then
+  CHAT_TEMPLATE_FILE=$SLURM_SUBMIT_DIR/$CHAT_TEMPLATE_FILE
+fi
+if [[ ! -s "$CHAT_TEMPLATE_FILE" ]]; then
+  echo "Training preflight failed: missing chat template $CHAT_TEMPLATE_FILE" >&2
+  exit 2
+fi
 
 PRODUCTION_CONFIG=configs/train/reasoning-v1.yaml
 PRODUCTION_DATA=$OELLM_RUN_ROOT/data/reasoning-v1/train.parquet
@@ -54,7 +63,7 @@ ln -sf "${SLURM_JOB_ID}.out" logs/latest.out 2>/dev/null || true
 RUN_DIR=$OELLM_RUN_ROOT/runs/$SLURM_JOB_ID
 mkdir -p "$RUN_DIR"
 cp "$TRAIN_CONFIG" "$RUN_DIR/resolved-train-config.yaml"
-cp templates/oellm_gemma_assistant_mask.jinja "$RUN_DIR/chat-template.jinja"
+cp "$CHAT_TEMPLATE_FILE" "$RUN_DIR/chat-template.jinja"
 if [[ -s "$PRODUCTION_MANIFEST" ]]; then
   cp "$PRODUCTION_MANIFEST" "$RUN_DIR/data-manifest.json"
 fi
@@ -94,7 +103,7 @@ srun --label singularity exec -B "$BIND" "$CONTAINER" bash -lc "
   export HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
   export ACCELERATE_USE_FSDP=true FSDP_CPU_RAM_EFFICIENT_LOADING=1
   export RANK0_META_LOAD=$RANK0_META_LOAD RESUME_FROM_CHECKPOINT=$RESUME_FROM_CHECKPOINT
-  export CHAT_TEMPLATE_FILE=$SLURM_SUBMIT_DIR/templates/oellm_gemma_assistant_mask.jinja
+  export CHAT_TEMPLATE_FILE=$CHAT_TEMPLATE_FILE
   export TRAIN_CONFIG=$TRAIN_CONFIG
   export OELLM_RUN_ROOT=$OELLM_RUN_ROOT REPOSITORY_GIT_SHA=$REPOSITORY_GIT_SHA
   export TRAINING_CONTAINER=$TRAINING_CONTAINER

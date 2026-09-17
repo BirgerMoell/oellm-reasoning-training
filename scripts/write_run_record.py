@@ -42,12 +42,15 @@ def main() -> None:
     record_path = args.run_dir / "run.yaml"
     record = yaml.safe_load(record_path.read_text(encoding="utf-8")) if record_path.is_file() else {}
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
-    manifest_path = args.root / "data" / "reasoning-v1" / "manifest.json"
+    train_path = Path(config["datasets"][0]["data_files"]["train"])
+    manifest_path = train_path.with_name("manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
     model_path = Path(config["model_name_or_path"])
     snapshot_path = model_path / "snapshot.json"
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8")) if snapshot_path.is_file() else {}
-    template_path = Path("templates/oellm_gemma_assistant_mask.jinja")
+    template_path = Path(
+        os.environ.get("CHAT_TEMPLATE_FILE", "templates/oellm_gemma_assistant_mask.jinja")
+    )
     repo_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     repo_dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip())
     job_id = os.environ.get("SLURM_JOB_ID")
@@ -71,7 +74,7 @@ def main() -> None:
             "data": {
                 "manifest": str(manifest_path),
                 "manifest_sha256": sha256_file(manifest_path),
-                "parquet": str(args.root / "data" / "reasoning-v1" / "train.parquet"),
+                "parquet": str(train_path),
                 "parquet_sha256": manifest.get("output", {}).get("sha256"),
                 "selected_rows": manifest.get("selected_rows"),
                 "selected_tokens": manifest.get("selected_tokens"),

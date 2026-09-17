@@ -18,11 +18,12 @@ from typing import Any
 import yaml
 from datasets import Dataset, concatenate_datasets, load_dataset
 
+from audit_repetition import analyze_text
 from tokenizer_utils import load_local_tokenizer
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = ROOT / "templates" / "oellm_gemma_assistant_mask.jinja"
+DEFAULT_TEMPLATE = ROOT / "templates" / "oellm_gemma_assistant_mask.jinja"
 DEDUP_COMMIT_ROWS = 100_000
 
 
@@ -100,6 +101,30 @@ def clean_messages(raw: Any) -> tuple[list[dict[str, str]] | None, str]:
     if messages[-1]["role"] != "assistant":
         return None, "assistant_not_last"
     return messages, "ok"
+
+
+def final_assistant_text(messages: list[dict[str, str]]) -> str:
+    return next(
+        (message["content"] for message in reversed(messages) if message["role"] == "assistant"),
+        "",
+    )
+
+
+def validate_reasoning_format(text: str, source: dict[str, Any]) -> str:
+    """Apply opt-in v2 quality gates without changing the immutable v1 recipe."""
+
+    if source.get("reasoning_format") == "think_and_answer":
+        start = text.find("<think>")
+        end = text.find("</think>", start + len("<think>"))
+        if start == -1 or end == -1:
+            return "missing_complete_think"
+        if not text[start + len("<think>") : end].strip():
+            return "empty_think"
+        if not text[end + len("</think>") :].strip():
+            return "missing_final_answer"
+    if source.get("reject_strict_repetition") and analyze_text(text).strict_loop_30gram_20x:
+        return "strict_repetition"
+    return "ok"
 
 
 def openr1_messages(example: dict[str, Any]) -> tuple[list[dict[str, str]] | None, str]:
@@ -233,14 +258,16 @@ def normalize_dataset(
                 "_reason": reason,
             }
 
-        assistant = "\n".join(m["content"] for m in messages if m["role"] == "assistant")
+        assistant = final_assistant_text(messages)
         if source.get("require_reasoning_trace") and len(assistant) < 128:
             reason = "reasoning_trace_too_short"
             token_count = 0
         else:
+            reason = validate_reasoning_format(assistant, source)
+            token_count = 0
+        if reason == "ok":
             try:
                 token_count = rendered_token_count(tokenizer, messages)
-                reason = "ok"
             except Exception:
                 token_count = 0
                 reason = "template_error"
@@ -377,7 +404,18 @@ def main() -> None:
 
     model_dir = args.root / "models" / config["model"]["local_name"]
     tokenizer = load_local_tokenizer(model_dir)
-    tokenizer.chat_template = TEMPLATE.read_text(encoding="utf-8")
+    template_value = config["model"].get("chat_template", str(DEFAULT_TEMPLATE.relative_to(ROOT)))
+    template_path = Path(template_value)
+    if not template_path.is_absolute():
+        template_path = ROOT / template_path
+    if not template_path.is_file():
+        raise FileNotFoundError(f"missing chat template: {template_path}")
+    tokenizer.chat_template = template_path.read_text(encoding="utf-8")
+    expected_turn_end = config["model"].get("expected", {}).get("turn_end_token")
+    if expected_turn_end and expected_turn_end not in tokenizer.chat_template:
+        raise ValueError(
+            f"chat template does not contain expected turn terminator {expected_turn_end!r}"
+        )
 
     connection = sqlite3.connect(database_file)
     connection.execute("PRAGMA synchronous=NORMAL")
@@ -521,7 +559,8 @@ def main() -> None:
         "build_host": os.uname().nodename,
         "seed": config["seed"],
         "model": config["model"],
-        "chat_template_sha256": sha256_file(TEMPLATE),
+        "chat_template": str(template_path.relative_to(ROOT)),
+        "chat_template_sha256": sha256_file(template_path),
         "target_tokens": config["target_tokens"],
         "consume_once_tokens": fixed_tokens,
         "selected_tokens": total_tokens,

@@ -34,8 +34,10 @@ def validate_model(model_dir: Path, expected: dict) -> None:
             fail(f"missing model file: {path}")
     config = json.loads(config_file.read_text(encoding="utf-8"))
     tokenizer = json.loads(tokenizer_file.read_text(encoding="utf-8"))
+    template = template_file.read_text(encoding="utf-8")
     architecture = (config.get("architectures") or [None])[0]
     rope = config.get("rope_parameters") or {}
+    expected_turn_end = expected.get("turn_end_token")
     checks = {
         "architecture": architecture,
         "model_type": config.get("model_type"),
@@ -44,6 +46,9 @@ def validate_model(model_dir: Path, expected: dict) -> None:
         "vocab_size": config.get("vocab_size"),
         "eos_token": tokenizer.get("eos_token"),
         "pad_token": tokenizer.get("pad_token"),
+        "turn_end_token": (
+            expected_turn_end if expected_turn_end and expected_turn_end in template else None
+        ),
     }
     mismatches = {
         key: (checks.get(key), value)
@@ -52,8 +57,9 @@ def validate_model(model_dir: Path, expected: dict) -> None:
     }
     if mismatches:
         fail(f"model invariants mismatch: {mismatches}")
-    template = template_file.read_text(encoding="utf-8")
-    if "<start_of_turn>" not in template or "<end_of_turn>" not in template:
+    if expected_turn_end is None and (
+        "<start_of_turn>" not in template or "<end_of_turn>" not in template
+    ):
         fail("model chat template is not Gemma-style")
     print(f"OK model: {model_dir}")
 

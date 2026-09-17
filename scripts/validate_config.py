@@ -15,11 +15,90 @@ SANITY_DATA_CONFIG = ROOT / "configs" / "data" / "reasoning-sanity.yaml"
 SMOKE_CONFIG = ROOT / "configs" / "train" / "smoke.yaml"
 SANITY_TRAIN_CONFIG = ROOT / "configs" / "train" / "sanity.yaml"
 TRAIN_CONFIG = ROOT / "configs" / "train" / "reasoning-v1.yaml"
+ANNEAL_DATA_CONFIG = ROOT / "configs" / "data" / "reasoning-anneal300b-v1.yaml"
+ANNEAL_TRAIN_CONFIG = ROOT / "configs" / "train" / "reasoning-anneal300b-v1.yaml"
+ANNEAL_SANITY_CONFIG = ROOT / "configs" / "train" / "reasoning-anneal300b-sanity.yaml"
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
 
 def load(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def validate_anneal300b() -> list[str]:
+    errors: list[str] = []
+    data = load(ANNEAL_DATA_CONFIG)
+    train = load(ANNEAL_TRAIN_CONFIG)
+    sanity = load(ANNEAL_SANITY_CONFIG)
+    sources = data["sources"]
+    weighted = [source for source in sources if source["selection"] == "token_weighted"]
+    shares = sum(float(source["token_share"]) for source in weighted)
+    if abs(shares - 1.0) > 1e-9:
+        errors.append(f"anneal300b token shares sum to {shares}, not 1.0")
+    ids = [source["id"] for source in sources]
+    if len(ids) != len(set(ids)):
+        errors.append("anneal300b source IDs are not unique")
+    order = data.get("selection_order") or []
+    if len(order) != len(set(order)) or set(order) != set(ids):
+        errors.append("anneal300b selection_order must contain every source ID exactly once")
+    if not order or order[0] != "reasoning-traces-multilingual-v0.2-pilot":
+        errors.append("anneal300b multilingual coverage source must select first")
+    if not COMMIT.match(data["model"]["revision"]):
+        errors.append("anneal300b model revision is not a 40-character commit")
+    for source in sources:
+        spec = source["input"]
+        if spec["kind"] == "huggingface_snapshot" and not COMMIT.match(spec["revision"]):
+            errors.append(f"anneal300b {source['id']} revision is not a commit")
+        if source.get("require_reasoning_trace"):
+            if source.get("reasoning_format") != "think_and_answer":
+                errors.append(f"anneal300b {source['id']} does not require think-plus-answer format")
+            if not source.get("reject_strict_repetition"):
+                errors.append(f"anneal300b {source['id']} does not reject strict lexical loops")
+    replay = next((source for source in sources if source["id"] == "dolci-instruct-sft-replay"), None)
+    if replay is None or float(replay.get("token_share", 0)) < 0.35:
+        errors.append("anneal300b requires at least 35% exact-source instruction replay")
+    expected = data["model"]["expected"]
+    if expected.get("turn_end_token") != "<|im_end|>" or expected.get("eos_token") != "<eos>":
+        errors.append("anneal300b model token invariants changed")
+    template = ROOT / data["model"]["chat_template"]
+    if not template.is_file():
+        errors.append("anneal300b native assistant-mask template is missing")
+    elif "<|im_start|>" not in template.read_text(encoding="utf-8"):
+        errors.append("anneal300b template is not ChatML-style")
+    if train.get("eos_token") != "<|im_end|>" or sanity.get("eos_token") != "<|im_end|>":
+        errors.append("anneal300b trainer EOS must be the assistant turn terminator")
+    if train["max_steps"] * 64 * train["max_length"] != data["target_tokens"]:
+        errors.append("anneal300b packed training budget differs from the data target")
+    allowed_sanity_differences = {
+        "output_dir",
+        "max_steps",
+        "logging_steps",
+        "save_steps",
+        "save_total_limit",
+    }
+    train_core = {key: value for key, value in train.items() if key not in allowed_sanity_differences}
+    sanity_core = {key: value for key, value in sanity.items() if key not in allowed_sanity_differences}
+    if train_core != sanity_core:
+        errors.append("anneal300b sanity differs from production outside run-size/output fields")
+    if sanity.get("max_steps") != 10:
+        errors.append("anneal300b sanity must remain a ten-step integration run")
+    for source_id in ("dolci-instruct-sft-replay",):
+        if not (ROOT / "data" / "sources" / source_id / "README.md").is_file():
+            errors.append(f"missing source card for {source_id}")
+    for wrapper in (
+        ROOT / "slurm" / "train_anneal300b_sanity_lumi.sbatch",
+        ROOT / "slurm" / "train_anneal300b_production_lumi.sbatch",
+    ):
+        text = wrapper.read_text(encoding="utf-8") if wrapper.is_file() else ""
+        for required in (
+            "#SBATCH --nodes=8",
+            "#SBATCH --gpus-per-node=8",
+            "templates/oellm_qwen3_assistant_mask.jinja",
+            "exec bash slurm/train_lumi.sbatch",
+        ):
+            if required not in text:
+                errors.append(f"{wrapper.name} missing: {required}")
+    return errors
 
 
 def validate() -> list[str]:
@@ -189,6 +268,7 @@ def validate() -> list[str]:
             errors.append(f"production Slurm wrapper missing: {required}")
     if not (ROOT / "templates" / "oellm_gemma_assistant_mask.jinja").is_file():
         errors.append("assistant-mask template is missing")
+    errors.extend(validate_anneal300b())
     return errors
 
 

@@ -17,7 +17,6 @@ from tokenizer_utils import load_local_tokenizer
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = ROOT / "templates" / "oellm_gemma_assistant_mask.jinja"
 
 
 def seed_hashes(path: Path | None) -> set[str]:
@@ -55,7 +54,12 @@ def main() -> None:
     quotas = weighted_quotas(config, fixed_tokens)
     model_dir = args.root / "models" / config["model"]["local_name"]
     tokenizer = load_local_tokenizer(model_dir)
-    tokenizer.chat_template = TEMPLATE.read_text(encoding="utf-8")
+    template_path = Path(
+        config["model"].get("chat_template", "templates/oellm_gemma_assistant_mask.jinja")
+    )
+    if not template_path.is_absolute():
+        template_path = ROOT / template_path
+    tokenizer.chat_template = template_path.read_text(encoding="utf-8")
     seen = seed_hashes(args.seed_dedup)
     print(f"[seed] {len(seen):,} prompt hashes", flush=True)
 

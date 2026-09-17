@@ -8,6 +8,22 @@ mixture, launches the tested TRL/FSDP stack, and records every artifact needed t
 This repository owns one stage: **reasoning SFT after instruction SFT**. Preference optimization,
 RLVR, tool use, and safety training should consume its accepted checkpoint as separate stages.
 
+## Current Anneal-300B target
+
+The repository now also contains a separate, format-native continuation for
+[`Neonkraft/oellm-9b-256k-theta64m-prelude-anneal300b-instruct-sft`](https://huggingface.co/Neonkraft/oellm-9b-256k-theta64m-prelude-anneal300b-instruct-sft).
+It does not overwrite or resume the published reasoning-v1 model.
+
+| Field | Decision |
+|---|---|
+| Parent | pinned revision `85bf18fb4f0bee6ac6270f06b1d1c6b3be200f31` |
+| Native format | Qwen3 ChatML; `<|im_end|>` is the supervised/serving stop token |
+| Data | 524.3M rendered tokens; 65% reasoning and 35% parent-source Dolci instruction replay, plus the fixed multilingual pilot |
+| Quality gates | non-empty `<think>` and final answer on every reasoning row; strict lexical loops rejected |
+| Run | 500 packed 16K updates on 64 LUMI GCDs, peak LR `1.5e-6`, checkpoints every 100 steps |
+| Safety gate | production-identical ten-step 64-GCD sanity run and exhaustive weight scan before the production dependency is released |
+| Detailed plan | [`docs/ANNEAL300B_REASONING_RUN.md`](docs/ANNEAL300B_REASONING_RUN.md) |
+
 ## Published checkpoint
 
 | Field | Value |

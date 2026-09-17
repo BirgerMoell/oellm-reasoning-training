@@ -99,6 +99,17 @@ def validate_assistant_mask(tokenizer: object, training_args: SFTConfig) -> None
     mask = rendered.get("assistant_masks") or rendered.get("assistant_tokens_mask")
     if mask is None or not any(mask) or all(mask):
         raise RuntimeError("chat template did not produce a valid assistant token mask")
+    supervised_ids = [token for token, enabled in zip(rendered["input_ids"], mask) if enabled]
+    configured_eos = training_args.eos_token
+    expected_eos_id = tokenizer.convert_tokens_to_ids(configured_eos)
+    if expected_eos_id not in supervised_ids:
+        raise RuntimeError(
+            "the assistant mask does not supervise the configured turn terminator: "
+            f"token id {expected_eos_id}"
+        )
+    last_eos = len(supervised_ids) - 1 - supervised_ids[::-1].index(expected_eos_id)
+    if tokenizer.decode(supervised_ids[last_eos + 1 :]).strip():
+        raise RuntimeError("non-whitespace assistant targets occur after the final turn terminator")
     print(f"[template] assistant target tokens: {sum(mask)}/{len(mask)}", flush=True)
 
 
@@ -202,11 +213,21 @@ def main(
         model_args.model_name_or_path,
         trust_remote_code=model_args.trust_remote_code,
     )
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    if tokenizer.eos_token != "<end_of_turn>":
-        raise RuntimeError(f"unexpected EOS token: {tokenizer.eos_token!r}")
     template_path = load_template(tokenizer)
+    configured_eos = training_args.eos_token
+    if not configured_eos:
+        raise RuntimeError("the training config must set eos_token to the assistant turn terminator")
+    eos_id = tokenizer.convert_tokens_to_ids(configured_eos)
+    if eos_id is None or eos_id == tokenizer.unk_token_id:
+        raise RuntimeError(f"configured EOS token is missing from the tokenizer: {configured_eos!r}")
+    tokenizer.eos_token = configured_eos
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = configured_eos
+    print(
+        f"[tokenizer] assistant terminator={configured_eos!r} id={eos_id}; "
+        f"pad={tokenizer.pad_token!r} id={tokenizer.pad_token_id}",
+        flush=True,
+    )
     validate_assistant_mask(tokenizer, training_args)
 
     dataset = get_dataset(dataset_args)
