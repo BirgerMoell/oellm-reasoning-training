@@ -32,6 +32,12 @@ PRODUCTION_CONFIG=configs/train/reasoning-v1.yaml
 PRODUCTION_DATA=$OELLM_RUN_ROOT/data/reasoning-v1/train.parquet
 PRODUCTION_MANIFEST=$OELLM_RUN_ROOT/data/reasoning-v1/manifest.json
 PRODUCTION_OUTPUT=$OELLM_RUN_ROOT/checkpoints/reasoning-v1
+RUN_DATA=$(awk '/^[[:space:]]+train: / {print $2; exit}' "$TRAIN_CONFIG")
+if [[ -z "$RUN_DATA" ]]; then
+  echo "Training preflight failed: could not resolve train parquet from $TRAIN_CONFIG" >&2
+  exit 2
+fi
+RUN_MANIFEST=$(dirname "$RUN_DATA")/manifest.json
 
 if [[ "$TRAIN_CONFIG" == "$PRODUCTION_CONFIG" ]]; then
   for required in "$PRODUCTION_DATA" "$PRODUCTION_MANIFEST"; do
@@ -64,8 +70,8 @@ RUN_DIR=$OELLM_RUN_ROOT/runs/$SLURM_JOB_ID
 mkdir -p "$RUN_DIR"
 cp "$TRAIN_CONFIG" "$RUN_DIR/resolved-train-config.yaml"
 cp "$CHAT_TEMPLATE_FILE" "$RUN_DIR/chat-template.jinja"
-if [[ -s "$PRODUCTION_MANIFEST" ]]; then
-  cp "$PRODUCTION_MANIFEST" "$RUN_DIR/data-manifest.json"
+if [[ -s "$RUN_MANIFEST" ]]; then
+  cp "$RUN_MANIFEST" "$RUN_DIR/data-manifest.json"
 fi
 git rev-parse HEAD > "$RUN_DIR/repository-git-sha.txt"
 git status --porcelain=v1 > "$RUN_DIR/repository-status.txt"
