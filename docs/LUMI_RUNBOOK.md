@@ -6,7 +6,7 @@
 |---|---|
 | Project | `project_465002530` |
 | GPU partition | `standard-g` |
-| Container | `/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif` |
+| Container | `/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif` (override with `OELLM_CONTAINER`) |
 | Python overlay | `/scratch/project_465002530/users/bmoell/pylibs-overlay` |
 | PyTorch | `2.9.1+rocm6.4` |
 | Transformers | `5.12.1` |

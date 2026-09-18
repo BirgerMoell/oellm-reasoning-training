@@ -18,7 +18,7 @@ set -euo pipefail
 : "${OELLM_RUN_ROOT:=/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts}"
 : "${DATA_CONFIG:=configs/data/reasoning-v1.yaml}"
 
-CONTAINER=/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif
+CONTAINER=${OELLM_CONTAINER:-/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif}
 OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 

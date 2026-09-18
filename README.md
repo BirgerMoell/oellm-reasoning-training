@@ -181,7 +181,7 @@ As of 2026-08-18:
   (1,526,602 rows)
 - shared raw Nemotron v2: `/scratch/project_462000963/datasets/posttraining_data/Nemotron-Post-Training-Dataset-v2`
 - shared OpenR1 Math 220K: `/scratch/project_462000963/datasets/posttraining_data/OpenR1-Math-220k/default-train.jsonl`
-- tested container: `/scratch/project_462000963/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif`
+- tested container: `/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif` (all run scripts accept an `OELLM_CONTAINER` override)
 - overlay addition: `liger-kernel==0.8.1`, hash-pinned in `requirements-lumi.txt`; only Qwen3 fused
   linear cross-entropy is enabled so 16K × 263K-vocabulary training does not materialize full logits
 
