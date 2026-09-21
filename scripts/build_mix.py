@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from datasets import Dataset, concatenate_datasets, load_dataset
+from datasets import Dataset, Features, List, Value, concatenate_datasets, load_dataset
 
 from audit_repetition import STRICT_COUNT, STRICT_NGRAM, has_repeated_ngram
 from tokenizer_utils import load_local_tokenizer
@@ -25,6 +25,24 @@ from tokenizer_utils import load_local_tokenizer
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEMPLATE = ROOT / "templates" / "oellm_gemma_assistant_mask.jinja"
 DEDUP_COMMIT_ROWS = 100_000
+NORMALIZED_FEATURES = Features(
+    {
+        "messages": List(
+            {
+                "role": Value("string"),
+                "content": Value("string"),
+            }
+        ),
+        "prompt_hash": Value("string"),
+        "token_count": Value("int64"),
+        "source_id": Value("string"),
+        "language": Value("string"),
+        "task": Value("string"),
+        "has_think_tags": Value("bool"),
+        "_valid": Value("bool"),
+        "_reason": Value("string"),
+    }
+)
 
 
 def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -300,6 +318,7 @@ def normalize_dataset(
     mapped = dataset.map(
         normalize,
         remove_columns=original_columns,
+        features=NORMALIZED_FEATURES,
         num_proc=workers,
         desc=f"normalize {source['id']}",
     )
