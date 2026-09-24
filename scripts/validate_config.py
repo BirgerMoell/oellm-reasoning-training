@@ -155,6 +155,24 @@ def validate_translated_anneal300b() -> list[str]:
     replay = next((source for source in sources if source["id"] == "dolci-instruct-sft-replay"), None)
     if replay is None or float(replay.get("token_share", 0)) != 0.35:
         errors.append("translated v2 must retain 35% Dolci instruction replay")
+    medqa = next((source for source in sources if source["id"] == "medqa-correct-reasoning-traces"), None)
+    if medqa is None:
+        errors.append("translated v2 is missing the MedQA reasoning slice")
+    else:
+        expected_medqa = {
+            "repo_id": "birgermoell/medqa-reasoning-traces",
+            "revision": "82fe04a7165fdafc5bacb7f6a988d4d0763d6d9a",
+            "split": "train",
+            "files": "data/train-*.parquet",
+            "expected_rows": 10178,
+        }
+        for key, value in expected_medqa.items():
+            if medqa["input"].get(key) != value:
+                errors.append(f"translated v2 MedQA {key} changed")
+        if float(medqa.get("token_share", 0)) != 0.02:
+            errors.append("translated v2 MedQA must remain 2% of weighted tokens")
+        if medqa.get("adapter") != "medqa_correct_reasoning":
+            errors.append("translated v2 MedQA must use the correct/completed-trace adapter")
     if train["max_steps"] * 64 * train["max_length"] != data["target_tokens"]:
         errors.append("translated v2 packed training budget differs from its data target")
     allowed_sanity_differences = {
@@ -177,6 +195,8 @@ def validate_translated_anneal300b() -> list[str]:
             errors.append(f"{name} DDP timeout exceeds the 15-minute ceiling")
     if not (ROOT / "data" / "sources" / "dolci-think-sft-translated" / "README.md").is_file():
         errors.append("translated Dolci source card is missing")
+    if not (ROOT / "data" / "sources" / "medqa-reasoning-traces" / "README.md").is_file():
+        errors.append("MedQA reasoning source card is missing")
     for wrapper in (
         ROOT / "slurm" / "train_anneal300b_dolci_translated_sanity_lumi.sbatch",
         ROOT / "slurm" / "train_anneal300b_dolci_translated_production_lumi.sbatch",

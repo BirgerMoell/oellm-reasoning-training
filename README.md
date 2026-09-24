@@ -31,8 +31,9 @@ The active follow-up keeps the exact same parent, 524.288M-token budget, optimiz
 packing, and 64-GCD topology, while adding the pinned
 [`openeurollm/Dolci-Think-SFT-translated`](https://huggingface.co/datasets/openeurollm/Dolci-Think-SFT-translated)
 release. Its 12 languages receive 2% of weighted tokens each (24% total). The remaining weighted mix is
-17% English decontaminated Dolci Think, 12% multilingual Nemotron, 12% verifier-positive OpenR1 math,
-and 35% Dolci Instruct replay. The fixed 37-language pilot is still consumed first.
+17% English decontaminated Dolci Think, 12% multilingual Nemotron, 10% verifier-positive OpenR1 math,
+2% correct/completed MedQA train traces, and 35% Dolci Instruct replay. The fixed 37-language pilot is
+still consumed first. MedQA validation/test rows are excluded and its research-use terms apply.
 
 The recipe is [`configs/data/reasoning-anneal300b-dolci-translated-v2.yaml`](configs/data/reasoning-anneal300b-dolci-translated-v2.yaml).
 It writes a new artifact and new checkpoints; it never mutates or resumes the earlier v1 attempt.

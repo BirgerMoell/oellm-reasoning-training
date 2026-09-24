@@ -27,6 +27,7 @@ selection_order:
   - nemotron-v2-fr-decontaminated
   - nemotron-v2-es-decontaminated
   - nemotron-v2-it-decontaminated
+  - medqa-correct-reasoning-traces
   - openr1-math-220k-verified
   - dolci-think-32b-decontaminated
   - dolci-think-7b-decontaminated
@@ -280,7 +281,7 @@ sources:
   - id: openr1-math-220k-verified
     role: verified_math_reasoning
     selection: token_weighted
-    token_share: 0.12
+    token_share: 0.10
     language: en
     adapter: openr1_verified
     require_reasoning_trace: true
@@ -293,6 +294,24 @@ sources:
       split: train
       files: data/train-*.parquet
     license: Apache-2.0
+
+  - id: medqa-correct-reasoning-traces
+    role: medical_reasoning
+    selection: token_weighted
+    token_share: 0.02
+    language: en
+    adapter: medqa_correct_reasoning
+    require_reasoning_trace: true
+    reasoning_format: think_and_answer
+    reject_strict_repetition: true
+    input:
+      kind: huggingface_snapshot
+      repo_id: birgermoell/medqa-reasoning-traces
+      revision: 82fe04a7165fdafc5bacb7f6a988d4d0763d6d9a
+      split: train
+      files: data/train-*.parquet
+      expected_rows: 10178
+    license: medqa-research-use
 
   - id: dolci-instruct-sft-replay
     role: capability_replay

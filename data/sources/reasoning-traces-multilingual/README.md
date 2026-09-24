@@ -15,6 +15,13 @@
 | License | CC-BY-4.0; retain upstream attribution |
 | LUMI v1 snapshot | `$OELLM_RUN_ROOT/raw/datasets/openeurollm--reasoning-traces-multilingual/` |
 
+The earlier personal repository
+[`birgermoell/reasoning-traces-multilingual`](https://huggingface.co/datasets/birgermoell/reasoning-traces-multilingual)
+at revision `a87a25ae1d353ad2ba9d3a827dfcf9516021b2a0` is the 2,930-row v0.1 primary-pass release.
+The pinned OpenEuroLLM v0.2 source is its append-only successor: it preserves all v0.1 rows and adds
+495 accepted fallback translations. The recipe therefore records but does not ingest the personal v0.1
+repository separately; doing so would double-count the same source/language pairs before deduplication.
+
 The dataset translates a deterministic 100-problem Llama-Nemotron math sample into 37 languages. One
 source problem produced no accepted translation because of malformed `<think>` tags. Published rows have
 already passed automated language, script, protected-token, structural, length, and source-copy gates.

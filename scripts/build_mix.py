@@ -179,6 +179,36 @@ def openr1_messages(example: dict[str, Any]) -> tuple[list[dict[str, str]] | Non
     return messages, "ok"
 
 
+def medqa_correct_messages(example: dict[str, Any]) -> tuple[list[dict[str, str]] | None, str]:
+    """Convert only correct, completed MedQA train traces to native reasoning SFT messages."""
+
+    if not bool(example.get("correct")):
+        return None, "medqa_incorrect"
+    if str(example.get("finish_reason", "")).strip().lower() != "stop":
+        return None, "medqa_incomplete"
+    question = example.get("question")
+    reasoning = example.get("reasoning")
+    response = example.get("response")
+    options = example.get("options")
+    if not all(isinstance(value, str) and value.strip() for value in (question, reasoning, response)):
+        return None, "medqa_missing_text"
+    if not isinstance(options, Mapping):
+        return None, "medqa_missing_options"
+    rendered_options = []
+    for label in ("A", "B", "C", "D"):
+        value = options.get(label)
+        if not isinstance(value, str) or not value.strip():
+            return None, "medqa_missing_options"
+        rendered_options.append(f"({label}) {value.strip()}")
+    prompt = "Answer the following USMLE-style multiple-choice question.\n\n"
+    prompt += question.strip() + "\n\n" + "\n".join(rendered_options)
+    answer = f"<think>\n{reasoning.strip()}\n</think>\n{response.strip()}"
+    return [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": answer},
+    ], "ok"
+
+
 def weighted_quotas(config: dict[str, Any], fixed_tokens: int) -> dict[str, int]:
     weighted = [source for source in config["sources"] if source["selection"] == "token_weighted"]
     target = int(config["target_tokens"]) - fixed_tokens
@@ -247,6 +277,8 @@ def normalize_dataset(
     def normalize(example: dict[str, Any]) -> dict[str, Any]:
         if adapter == "openr1_verified":
             messages, reason = openr1_messages(example)
+        elif adapter == "medqa_correct_reasoning":
+            messages, reason = medqa_correct_messages(example)
         elif adapter == "accepted_messages":
             quality = example.get("quality") or {}
             if not isinstance(quality, dict) or not bool(quality.get("accepted")):
