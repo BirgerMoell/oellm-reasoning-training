@@ -88,8 +88,10 @@ def validate_anneal300b() -> list[str]:
     sanity_core = {key: value for key, value in sanity.items() if key not in allowed_sanity_differences}
     if train_core != sanity_core:
         errors.append("anneal300b sanity differs from production outside run-size/output fields")
-    if sanity.get("max_steps") != 10:
-        errors.append("anneal300b sanity must remain a ten-step integration run")
+    if sanity.get("max_steps") != 30:
+        errors.append("anneal300b recovery sanity must cross the old stall with 30 steps")
+    if not str(sanity.get("output_dir", "")).endswith("reasoning-anneal300b-sanity-v2"):
+        errors.append("anneal300b recovery sanity must use a fresh v2 output directory")
     for source_id in ("dolci-instruct-sft-replay",):
         if not (ROOT / "data" / "sources" / source_id / "README.md").is_file():
             errors.append(f"missing source card for {source_id}")
@@ -223,18 +225,20 @@ def validate() -> list[str]:
         errors.append("sanity training differs from production outside the allowed run-size fields")
     if train["attn_implementation"] != "flash_attention_2" or not train["packing"]:
         errors.append("production packing requires flash_attention_2")
-    expected_liger = {
-        "rope": False,
-        "cross_entropy": False,
-        "fused_linear_cross_entropy": True,
-        "rms_norm": False,
-        "swiglu": False,
-    }
-    for name, config in (("production", train), ("sanity", sanity_train), ("smoke", smoke)):
-        if not config.get("use_liger_kernel"):
-            errors.append(f"{name} training must enable the fused Liger loss")
-        if config.get("liger_kernel_config") != expected_liger:
-            errors.append(f"{name} training has an unexpected Liger kernel configuration")
+    training_configs = (
+        ("production", train),
+        ("sanity", sanity_train),
+        ("smoke", smoke),
+        ("anneal300b production", load(ANNEAL_TRAIN_CONFIG)),
+        ("anneal300b sanity", load(ANNEAL_SANITY_CONFIG)),
+    )
+    for name, config in training_configs:
+        if config.get("use_liger_kernel"):
+            errors.append(f"{name} training must keep Liger disabled")
+        if config.get("loss_type") != "chunked_nll":
+            errors.append(f"{name} training must use TRL chunked_nll")
+        if int(config.get("ddp_timeout", 0)) > 900:
+            errors.append(f"{name} DDP timeout exceeds the 15-minute fail-fast ceiling")
     if not train["assistant_only_loss"] or not smoke["assistant_only_loss"]:
         errors.append("assistant-only loss must be enabled")
     if train["save_only_model"]:

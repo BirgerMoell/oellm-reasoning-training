@@ -21,7 +21,8 @@ It does not overwrite or resume the published reasoning-v1 model.
 | Data | 524.3M rendered tokens; 65% reasoning and 35% parent-source Dolci instruction replay, plus the fixed multilingual pilot |
 | Quality gates | non-empty `<think>` and final answer on every reasoning row; strict lexical loops rejected |
 | Run | 500 packed 16K updates on 64 LUMI GCDs, peak LR `1.5e-6`, checkpoints every 100 steps |
-| Safety gate | production-identical ten-step 64-GCD sanity run and exhaustive weight scan before the production dependency is released |
+| Safety gate | production-identical 30-step 64-GCD recovery run that crosses the previous step-15 stall, plus exhaustive weight scan before production |
+| Current incident | job `22211014` timed out after step 15; the recovery switches from the Liger ROCm/Triton fused-loss path to TRL 1.4.0 `chunked_nll` and adds collective watchdogs |
 | Detailed plan | [`docs/ANNEAL300B_REASONING_RUN.md`](docs/ANNEAL300B_REASONING_RUN.md) |
 
 ## Published checkpoint
@@ -43,7 +44,7 @@ It does not overwrite or resume the published reasoning-v1 model.
 |---|---|
 | Starting model | `birgermoell/oellm-9b-256k-sft@08359ad61333263c067edaf290067fea5b103d34` |
 | Why this stage | The published checkpoint is useful for multilingual instruction following and long-context retrieval, but its published reasoning/math aggregate is 5.9 |
-| Method | Full-parameter, assistant-only reasoning SFT with packed sequences, FlashAttention 2, and fused linear cross-entropy |
+| Method | Full-parameter, assistant-only reasoning SFT with packed sequences, FlashAttention 2, and TRL chunked NLL |
 | Core mixture | `reasoning-v1`, exactly 2,097,152,000 rendered-token target before packing |
 | Language allocation | First include all 3,351 eligible pilot translations across 37 languages once; allocate the remaining tokens as 65% English reasoning, 20% `de/fr/es/it` reasoning, and 15% multilingual/general replay |
 | Sequence length | 16,384 tokens; records that do not fit are rejected rather than losing the final answer |
@@ -182,8 +183,9 @@ As of 2026-08-18:
 - shared raw Nemotron v2: `/scratch/project_462000963/datasets/posttraining_data/Nemotron-Post-Training-Dataset-v2`
 - shared OpenR1 Math 220K: `/scratch/project_462000963/datasets/posttraining_data/OpenR1-Math-220k/default-train.jsonl`
 - tested container: `/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif` (all run scripts accept an `OELLM_CONTAINER` override)
-- overlay addition: `liger-kernel==0.8.1`, hash-pinned in `requirements-lumi.txt`; only Qwen3 fused
-  linear cross-entropy is enabled so 16K × 263K-vocabulary training does not materialize full logits
+- isolated training overlay: `trl==1.4.0`, hash-pinned in `requirements-lumi.txt`; its upstream
+  `chunked_nll` computes the same token NLL in chunks so 16K × 263K-vocabulary training does not
+  materialize full logits. The Liger ROCm/Triton loss path is disabled after job `22211014` stalled.
 
 The historical reasoning parquet is documented for comparison, but it is **not** the production-v1
 input: it was built from raw, non-decontaminated sources and its second 100K slice is English Nemotron

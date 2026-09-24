@@ -1,4 +1,6 @@
-# Compute nodes are offline. Install this on a login node into the pinned overlay.
-liger-kernel==0.8.1 \
-    --hash=sha256:90836c1e9de22a1c57a640775fb79151ea704748cf9c3f6658dddaa06fff1989 \
-    --hash=sha256:ae708a8079d2283070128e38497aa2976294d822e21a0f21ea86e63c67334a8b
+# Compute nodes are offline. Install this on a login node into the run-local overlay.
+# TRL 1.4.0 contains the upstream pure-PyTorch chunked NLL implementation merged in
+# huggingface/trl#5575. It avoids the ROCm/Triton fused-loss path that stalled job 22211014.
+trl==1.4.0 \
+    --hash=sha256:d8c1aeaa196cdaf2156206aa087d8c332c59e197d70b07585a1228abc19822c6 \
+    --hash=sha256:37f9b9a4401922469f02be85c6230ddfc680d746338c5d3f6fc5641fbff83908

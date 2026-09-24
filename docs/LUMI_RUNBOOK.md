@@ -7,13 +7,13 @@
 | Project | `project_465002530` |
 | GPU partition | `standard-g` |
 | Container | `/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif` (override with `OELLM_CONTAINER`) |
-| Python overlay | `/scratch/project_465002530/users/bmoell/pylibs-overlay` |
+| Training overlay | `$OELLM_RUN_ROOT/python/trl-1.4.0` (override with `OELLM_PYTHON_OVERLAY`) |
 | PyTorch | `2.9.1+rocm6.4` |
 | Transformers | `5.12.1` |
-| TRL | `0.28.0` |
+| TRL | `1.4.0` in the isolated overlay |
 | Datasets | `5.0.0` |
 | Accelerate | `1.12.0` |
-| Liger Kernel | `0.8.1` (fused linear cross-entropy only) |
+| Loss backend | TRL `chunked_nll`; Liger disabled |
 | Default artifact root | `/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts` |
 
 Compute nodes run offline. Download model/data snapshots on a login node before the CPU build or GPU job.
@@ -31,7 +31,7 @@ mkdir -p "$OELLM_RUN_ROOT" logs
 
 Record `git rev-parse HEAD` before doing anything else.
 
-Install and verify the repository-pinned addition to the shared overlay from the login node. The script
+Install and verify the repository-pinned TRL overlay from the login node. The script
 uses hashes from `requirements-lumi.txt`; compute nodes remain offline.
 
 ```bash
@@ -71,10 +71,12 @@ topology. The wrapper executes the exact production launcher; only data/output p
 and save interval differ. Require finite loss on all ranks and a reloadable checkpoint. Never release or
 resume production from `checkpoints/reasoning-sanity`.
 
-The 16K workload requires Liger's Qwen3 fused linear cross-entropy. Without it, the ordinary loss
-materializes a roughly 16 GiB full-vocabulary logits gradient per rank and fails after optimizer state is
-created. Only the fused loss is enabled; attention, RoPE, RMSNorm, and SwiGLU remain on the pinned model
-and FlashAttention implementations.
+The 16K workload requires a memory-efficient LM-head loss: ordinary NLL would materialize a roughly
+16 GiB full-vocabulary logits tensor per rank before its gradient. TRL 1.4.0 `chunked_nll` drops ignored
+positions and computes the same NLL in checkpointed chunks. Liger is deliberately disabled after the
+Anneal-300B run stalled at step 16 on its ROCm/Triton fused-loss path. The common launcher also records
+per-node step heartbeats and enables PyTorch/RCCL collective timeout diagnostics so a recurrence fails
+with evidence instead of consuming the whole allocation.
 
 ## 4. Build the mixture
 

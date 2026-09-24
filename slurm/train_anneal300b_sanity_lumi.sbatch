@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=56
 #SBATCH --mem=480G
-#SBATCH --time=0-00:30:00
+#SBATCH --time=0-01:00:00
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 
@@ -16,7 +16,7 @@ set -euo pipefail
 : "${OELLM_RUN_ROOT:=/scratch/project_465002530/users/bmoell/oellm-reasoning-training/artifacts}"
 DATA=$OELLM_RUN_ROOT/data/reasoning-anneal300b-v1/train.parquet
 MANIFEST=$OELLM_RUN_ROOT/data/reasoning-anneal300b-v1/manifest.json
-OUTPUT=$OELLM_RUN_ROOT/checkpoints/reasoning-anneal300b-sanity
+OUTPUT=$OELLM_RUN_ROOT/checkpoints/reasoning-anneal300b-sanity-v2
 for required in "$DATA" "$MANIFEST"; do
   if [[ ! -s "$required" ]]; then
     echo "Sanity preflight failed: missing or empty $required" >&2
@@ -33,4 +33,5 @@ export CHAT_TEMPLATE_FILE=templates/oellm_qwen3_assistant_mask.jinja
 export GPUS_PER_NODE=8
 
 # The only differences from production are max_steps, checkpoint interval, and output path.
+# Thirty steps cross the step-15 boundary where production job 22211014 stalled.
 exec bash slurm/train_lumi.sbatch

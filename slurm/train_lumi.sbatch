@@ -59,15 +59,22 @@ if [[ "$TRAIN_CONFIG" == "$PRODUCTION_CONFIG" ]]; then
 fi
 
 CONTAINER=${OELLM_CONTAINER:-/scratch/project_465002530/users/bmoell/containers/laif-rocm-6.4.4-pytorch-2.9.1-te-2.4.0-fa-2.8.0-triton-3.2.0.sif}
-OVERLAY=/scratch/project_465002530/users/bmoell/pylibs-overlay
+OVERLAY=${OELLM_PYTHON_OVERLAY:-$OELLM_RUN_ROOT/python/trl-1.4.0}
 BIND=/pfs,/scratch,/flash,/project,/projappl,/appl,/opt/cray,/var/spool/slurmd
 HF_CACHE=$OELLM_RUN_ROOT/cache/huggingface
+
+if [[ ! -d "$OVERLAY/trl" ]]; then
+  echo "Training preflight failed: isolated TRL 1.4.0 overlay is missing: $OVERLAY" >&2
+  echo "Run scripts/install_lumi_dependencies.sh on a login node first." >&2
+  exit 2
+fi
 
 mkdir -p logs "$HF_CACHE" "$OELLM_RUN_ROOT/runs"
 ln -sf "${SLURM_JOB_ID}.out" logs/latest.out 2>/dev/null || true
 
 RUN_DIR=$OELLM_RUN_ROOT/runs/$SLURM_JOB_ID
 mkdir -p "$RUN_DIR"
+export RUN_DIR
 cp "$TRAIN_CONFIG" "$RUN_DIR/resolved-train-config.yaml"
 cp "$CHAT_TEMPLATE_FILE" "$RUN_DIR/chat-template.jinja"
 if [[ -s "$RUN_MANIFEST" ]]; then
@@ -91,9 +98,17 @@ export MASTER_PORT
 MASTER_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
 export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
 export NCCL_NET_GDR_LEVEL=PHB
+export NCCL_DEBUG=WARN
+export NCCL_DEBUG_SUBSYS=INIT,COLL,NET
+export NCCL_DEBUG_FILE="$RUN_DIR/rccl.%h.%p.log"
 export OMP_NUM_THREADS=7
-export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_NCCL_ENABLE_MONITORING=1
+export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=600
+export TORCH_NCCL_TRACE_BUFFER_SIZE=2000
+export TORCH_NCCL_DUMP_ON_TIMEOUT=1
+export TORCH_NCCL_DESYNC_DEBUG=1
+export TORCH_NCCL_DEBUG_INFO_TEMP_FILE="$RUN_DIR/torch-nccl-trace-"
 export RANK0_META_LOAD=1
 export RESUME_FROM_CHECKPOINT
 
@@ -113,9 +128,10 @@ srun --label singularity exec -B "$BIND" "$CONTAINER" bash -lc "
   export TRAIN_CONFIG=$TRAIN_CONFIG
   export OELLM_RUN_ROOT=$OELLM_RUN_ROOT REPOSITORY_GIT_SHA=$REPOSITORY_GIT_SHA
   export TRAINING_CONTAINER=$TRAINING_CONTAINER
+  export RUN_DIR=$RUN_DIR
   cd $SLURM_SUBMIT_DIR
   if [[ \$SLURM_PROCID == 0 ]]; then
-    python3 -c \"import platform; from importlib.metadata import version; import accelerate, datasets, torch, transformers, trl; print('platform=' + platform.platform()); print('python=' + platform.python_version()); print('torch=' + torch.__version__); print('transformers=' + transformers.__version__); print('trl=' + trl.__version__); print('accelerate=' + accelerate.__version__); print('datasets=' + datasets.__version__); print('liger_kernel=' + version('liger-kernel'))\" > $RUN_DIR/environment.txt
+    python3 -c \"import platform; import accelerate, datasets, torch, transformers, trl; assert trl.__version__ == '1.4.0'; print('platform=' + platform.platform()); print('python=' + platform.python_version()); print('torch=' + torch.__version__); print('transformers=' + transformers.__version__); print('trl=' + trl.__version__); print('accelerate=' + accelerate.__version__); print('datasets=' + datasets.__version__); print('loss_type=chunked_nll')\" > $RUN_DIR/environment.txt
     python3 scripts/write_run_record.py --run-dir $RUN_DIR --config $TRAIN_CONFIG --root $OELLM_RUN_ROOT --container $TRAINING_CONTAINER --status started
   fi
   accelerate launch \

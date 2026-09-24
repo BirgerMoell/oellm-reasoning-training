@@ -6,12 +6,16 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from importlib.metadata import PackageNotFoundError, version
+import socket
+from datetime import datetime, timezone
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
 import yaml
+from packaging.version import Version
 from transformers import AutoConfig, AutoModelForCausalLM
+from transformers import TrainerCallback
 from trl import (
     DatasetMixtureConfig,
     ModelConfig,
@@ -33,30 +37,72 @@ EXPECTED = {
     "vocab_size": 263168,
 }
 
-EXPECTED_LIGER_CONFIG = {
-    "rope": False,
-    "cross_entropy": False,
-    "fused_linear_cross_entropy": True,
-    "rms_norm": False,
-    "swiglu": False,
-}
+EXPECTED_TRL_VERSION = "1.4.0"
 
 
 def validate_training_stack(training_args: SFTConfig) -> None:
-    """Fail before model loading unless the 16K-safe fused loss is exactly configured."""
-    if not training_args.use_liger_kernel:
-        raise RuntimeError("16K reasoning SFT requires the fused Liger loss")
-    if training_args.liger_kernel_config != EXPECTED_LIGER_CONFIG:
+    """Fail before model loading unless the reviewed memory-efficient loss is configured."""
+    installed = version("trl")
+    if Version(installed) != Version(EXPECTED_TRL_VERSION):
         raise RuntimeError(
-            "unexpected Liger configuration: "
-            f"{training_args.liger_kernel_config!r} != {EXPECTED_LIGER_CONFIG!r}"
+            f"TRL version mismatch: {installed!r} != {EXPECTED_TRL_VERSION!r}"
         )
-    try:
-        installed = version("liger-kernel")
-    except PackageNotFoundError as error:
-        raise RuntimeError("liger-kernel is not installed in the LUMI overlay") from error
-    if installed != "0.8.1":
-        raise RuntimeError(f"liger-kernel version mismatch: {installed!r} != '0.8.1'")
+    if training_args.use_liger_kernel:
+        raise RuntimeError(
+            "Liger must remain disabled: LUMI job 22211014 stalled in its ROCm/Triton "
+            "fused linear cross-entropy path"
+        )
+    if training_args.loss_type != "chunked_nll":
+        raise RuntimeError(
+            "16K reasoning SFT requires TRL loss_type='chunked_nll'; ordinary NLL "
+            "materializes the full 16K x 263K-vocabulary logits tensor"
+        )
+
+
+class StepHeartbeatCallback(TrainerCallback):
+    """Persist per-node step boundaries even when Slurm buffers tqdm output."""
+
+    def __init__(self) -> None:
+        self.path: Path | None = None
+        if int(os.environ.get("LOCAL_RANK", "0")) == 0:
+            run_dir = os.environ.get("RUN_DIR", "").strip()
+            if run_dir:
+                heartbeat_dir = Path(run_dir) / "heartbeats"
+                heartbeat_dir.mkdir(parents=True, exist_ok=True)
+                rank = int(os.environ.get("RANK", "0"))
+                self.path = heartbeat_dir / f"rank-{rank:05d}.jsonl"
+
+    def _write(self, event: str, state: object) -> None:
+        if self.path is None:
+            return
+        payload = {
+            "time": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            "global_step": int(getattr(state, "global_step", 0)),
+            "epoch": getattr(state, "epoch", None),
+            "rank": int(os.environ.get("RANK", "0")),
+            "host": socket.gethostname(),
+            "pid": os.getpid(),
+        }
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self._write("train_begin", state)
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        self._write("step_begin", state)
+
+    def on_step_end(self, args, state, control, **kwargs):
+        self._write("step_end", state)
+
+    def on_save(self, args, state, control, **kwargs):
+        self._write("save", state)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        self._write("train_end", state)
 
 
 def validate_architecture(config: object) -> None:
@@ -243,6 +289,7 @@ def main(
         eval_dataset=None,
         processing_class=tokenizer,
         peft_config=get_peft_config(model_args),
+        callbacks=[StepHeartbeatCallback()],
     )
     resume_raw = os.environ.get("RESUME_FROM_CHECKPOINT", "").strip()
     if resume_raw in {"", "0"}:

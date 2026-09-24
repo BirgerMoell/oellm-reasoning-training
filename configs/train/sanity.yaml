@@ -12,15 +12,10 @@ eos_token: <end_of_turn>
 max_length: 16384
 packing: true
 assistant_only_loss: true
-use_liger_kernel: true
-liger_kernel_config:
-  rope: false
-  cross_entropy: false
-  fused_linear_cross_entropy: true
-  rms_norm: false
-  swiglu: false
+use_liger_kernel: false
+loss_type: chunked_nll
 dataset_num_proc: 6
-ddp_timeout: 18000
+ddp_timeout: 900
 max_steps: 10
 per_device_train_batch_size: 1
 gradient_accumulation_steps: 1
