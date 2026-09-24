@@ -79,6 +79,20 @@ separate machine-translated Dolci Think 32B release covering 12 languages, inclu
 would be a new recipe/version and requires a fresh build, deduplication pass, sanity run, and provenance
 manifest; it must not be silently substituted into this immutable run.
 
+### Translated-Dolci v2 follow-up
+
+The follow-up recipe performs exactly that new experiment under the distinct version
+`reasoning-anneal300b-dolci-translated-v2`. It pins the translated dataset at
+`ba4754ab30afb66e652c3690ef0390dcea4939cd` and allocates 2% of weighted tokens to each of Czech,
+German, Greek, Spanish, Finnish, French, Italian, Dutch, Polish, Romanian, Swedish, and Ukrainian.
+The 24% translated allocation replaces part of the v1 English Dolci and Nemotron allocation; 35%
+instruction replay is unchanged. All filtering, masking, model, optimizer, sequence length, and topology
+controls remain identical, so the resulting comparison isolates the data-mixture change as closely as
+practical.
+
+The v2 artifact must be rebuilt from source and pass its own 30-step/checkpoint scan gate. A v1 manifest
+or checkpoint is not valid input to the v2 run.
+
 ## Format and loss invariants
 
 - native turn start: `<|im_start|>` (token 3);

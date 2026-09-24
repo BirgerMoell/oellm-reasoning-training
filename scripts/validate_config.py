@@ -18,6 +18,15 @@ TRAIN_CONFIG = ROOT / "configs" / "train" / "reasoning-v1.yaml"
 ANNEAL_DATA_CONFIG = ROOT / "configs" / "data" / "reasoning-anneal300b-v1.yaml"
 ANNEAL_TRAIN_CONFIG = ROOT / "configs" / "train" / "reasoning-anneal300b-v1.yaml"
 ANNEAL_SANITY_CONFIG = ROOT / "configs" / "train" / "reasoning-anneal300b-sanity.yaml"
+TRANSLATED_DATA_CONFIG = (
+    ROOT / "configs" / "data" / "reasoning-anneal300b-dolci-translated-v2.yaml"
+)
+TRANSLATED_TRAIN_CONFIG = (
+    ROOT / "configs" / "train" / "reasoning-anneal300b-dolci-translated-v2.yaml"
+)
+TRANSLATED_SANITY_CONFIG = (
+    ROOT / "configs" / "train" / "reasoning-anneal300b-dolci-translated-sanity.yaml"
+)
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -98,6 +107,79 @@ def validate_anneal300b() -> list[str]:
     for wrapper in (
         ROOT / "slurm" / "train_anneal300b_sanity_lumi.sbatch",
         ROOT / "slurm" / "train_anneal300b_production_lumi.sbatch",
+    ):
+        text = wrapper.read_text(encoding="utf-8") if wrapper.is_file() else ""
+        for required in (
+            "#SBATCH --nodes=8",
+            "#SBATCH --gpus-per-node=8",
+            "templates/oellm_qwen3_assistant_mask.jinja",
+            "exec bash slurm/train_lumi.sbatch",
+        ):
+            if required not in text:
+                errors.append(f"{wrapper.name} missing: {required}")
+    return errors
+
+
+def validate_translated_anneal300b() -> list[str]:
+    """Protect the v2 translated-Dolci experiment and its one-variable run comparison."""
+    errors: list[str] = []
+    data = load(TRANSLATED_DATA_CONFIG)
+    train = load(TRANSLATED_TRAIN_CONFIG)
+    sanity = load(TRANSLATED_SANITY_CONFIG)
+    sources = data["sources"]
+    weighted = [source for source in sources if source["selection"] == "token_weighted"]
+    shares = sum(float(source["token_share"]) for source in weighted)
+    if abs(shares - 1.0) > 1e-9:
+        errors.append(f"translated v2 token shares sum to {shares}, not 1.0")
+    ids = [source["id"] for source in sources]
+    if len(ids) != len(set(ids)):
+        errors.append("translated v2 source IDs are not unique")
+    order = data.get("selection_order") or []
+    if len(order) != len(set(order)) or set(order) != set(ids):
+        errors.append("translated v2 selection_order must contain every source exactly once")
+
+    languages = {"cs", "de", "el", "es", "fi", "fr", "it", "nl", "pl", "ro", "sv", "uk"}
+    translated = [source for source in sources if source["id"].startswith("dolci-think-translated-")]
+    if {source["language"] for source in translated} != languages:
+        errors.append("translated v2 must contain exactly the reviewed 12 languages")
+    if len(translated) != 12 or any(float(source["token_share"]) != 0.02 for source in translated):
+        errors.append("translated v2 must allocate exactly 2% per translated language")
+    for source in translated:
+        spec = source["input"]
+        if spec.get("repo_id") != "openeurollm/Dolci-Think-SFT-translated":
+            errors.append(f"{source['id']} uses the wrong translated repository")
+        if spec.get("revision") != "ba4754ab30afb66e652c3690ef0390dcea4939cd":
+            errors.append(f"{source['id']} translated revision changed")
+        if not source.get("require_reasoning_trace") or not source.get("reject_strict_repetition"):
+            errors.append(f"{source['id']} is missing reasoning/repetition gates")
+    replay = next((source for source in sources if source["id"] == "dolci-instruct-sft-replay"), None)
+    if replay is None or float(replay.get("token_share", 0)) != 0.35:
+        errors.append("translated v2 must retain 35% Dolci instruction replay")
+    if train["max_steps"] * 64 * train["max_length"] != data["target_tokens"]:
+        errors.append("translated v2 packed training budget differs from its data target")
+    allowed_sanity_differences = {
+        "output_dir",
+        "max_steps",
+        "logging_steps",
+        "save_steps",
+        "save_total_limit",
+    }
+    train_core = {key: value for key, value in train.items() if key not in allowed_sanity_differences}
+    sanity_core = {key: value for key, value in sanity.items() if key not in allowed_sanity_differences}
+    if train_core != sanity_core:
+        errors.append("translated v2 sanity differs from production outside run-size/output fields")
+    if sanity.get("max_steps") != 30 or sanity.get("save_steps") != 10:
+        errors.append("translated v2 sanity must save every 10 steps through step 30")
+    for name, config in (("translated v2 production", train), ("translated v2 sanity", sanity)):
+        if config.get("use_liger_kernel") or config.get("loss_type") != "chunked_nll":
+            errors.append(f"{name} must use chunked_nll with Liger disabled")
+        if int(config.get("ddp_timeout", 0)) > 900:
+            errors.append(f"{name} DDP timeout exceeds the 15-minute ceiling")
+    if not (ROOT / "data" / "sources" / "dolci-think-sft-translated" / "README.md").is_file():
+        errors.append("translated Dolci source card is missing")
+    for wrapper in (
+        ROOT / "slurm" / "train_anneal300b_dolci_translated_sanity_lumi.sbatch",
+        ROOT / "slurm" / "train_anneal300b_dolci_translated_production_lumi.sbatch",
     ):
         text = wrapper.read_text(encoding="utf-8") if wrapper.is_file() else ""
         for required in (
@@ -281,6 +363,7 @@ def validate() -> list[str]:
     if not (ROOT / "templates" / "oellm_gemma_assistant_mask.jinja").is_file():
         errors.append("assistant-mask template is missing")
     errors.extend(validate_anneal300b())
+    errors.extend(validate_translated_anneal300b())
     return errors
 
 
