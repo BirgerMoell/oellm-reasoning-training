@@ -139,6 +139,20 @@ def validate_translated_anneal300b() -> list[str]:
         errors.append("translated v2 selection_order must contain every source exactly once")
 
     languages = {"cs", "de", "el", "es", "fi", "fr", "it", "nl", "pl", "ro", "sv", "uk"}
+    expected_translated_rows = {
+        "cs": 74999,
+        "de": 106460,
+        "el": 55124,
+        "es": 63406,
+        "fi": 116639,
+        "fr": 107540,
+        "it": 105721,
+        "nl": 84579,
+        "pl": 84361,
+        "ro": 72101,
+        "sv": 70323,
+        "uk": 69174,
+    }
     translated = [source for source in sources if source["id"].startswith("dolci-think-translated-")]
     if {source["language"] for source in translated} != languages:
         errors.append("translated v2 must contain exactly the reviewed 12 languages")
@@ -150,6 +164,8 @@ def validate_translated_anneal300b() -> list[str]:
             errors.append(f"{source['id']} uses the wrong translated repository")
         if spec.get("revision") != "ba4754ab30afb66e652c3690ef0390dcea4939cd":
             errors.append(f"{source['id']} translated revision changed")
+        if spec.get("expected_rows") != expected_translated_rows[source["language"]]:
+            errors.append(f"{source['id']} pinned Parquet row count changed")
         if not source.get("require_reasoning_trace") or not source.get("reject_strict_repetition"):
             errors.append(f"{source['id']} is missing reasoning/repetition gates")
     replay = next((source for source in sources if source["id"] == "dolci-instruct-sft-replay"), None)

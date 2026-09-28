@@ -6,7 +6,7 @@
 | Pinned revision | `ba4754ab30afb66e652c3690ef0390dcea4939cd` |
 | License | Apache-2.0 |
 | Upstream description | Gemma-4-31B-it machine translations of the successful/validated Dolci Think SFT 32B subset |
-| Repository size | 1,008,455 rows, 11.8 GB |
+| Pinned snapshot size | 1,010,427 rows, 11.8 GB (Parquet metadata); the upstream card currently reports a stale 1,008,455 |
 | Languages | Czech, German, Greek, Spanish, Finnish, French, Italian, Dutch, Polish, Romanian, Swedish, Ukrainian |
 | Schema | `{id, messages}` with one language/config and sharded Parquet files |
 | Role | Explicit multilingual reasoning supervision in the Anneal-300B v2 continuation |
@@ -21,3 +21,8 @@ This is translated training data, not an independent correctness signal. The run
 verified OpenR1 math, independent Nemotron multilingual reasoning, the 37-language pilot, and 35%
 Dolci Instruct replay. Evaluation must report language-specific accuracy and language fidelity rather
 than treating translation volume as evidence of reasoning quality.
+
+The recipe pins per-language counts read directly from every Parquet footer at the revision above:
+`cs=74,999`, `de=106,460`, `el=55,124`, `es=63,406`, `fi=116,639`, `fr=107,540`,
+`it=105,721`, `nl=84,579`, `pl=84,361`, `ro=72,101`, `sv=70,323`, and `uk=69,174`.
+The build fails closed if any staged snapshot differs.

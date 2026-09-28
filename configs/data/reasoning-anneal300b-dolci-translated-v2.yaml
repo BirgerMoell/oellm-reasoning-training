@@ -139,42 +139,42 @@ sources:
     input:
       <<: *translated_dolci_input
       files: it/*.parquet
-      expected_rows: 105441
+      expected_rows: 105721
   - <<: *translated_dolci_defaults
     id: dolci-think-translated-nl
     language: nl
     input:
       <<: *translated_dolci_input
       files: nl/*.parquet
-      expected_rows: 84189
+      expected_rows: 84579
   - <<: *translated_dolci_defaults
     id: dolci-think-translated-pl
     language: pl
     input:
       <<: *translated_dolci_input
       files: pl/*.parquet
-      expected_rows: 84346
+      expected_rows: 84361
   - <<: *translated_dolci_defaults
     id: dolci-think-translated-ro
     language: ro
     input:
       <<: *translated_dolci_input
       files: ro/*.parquet
-      expected_rows: 71575
+      expected_rows: 72101
   - <<: *translated_dolci_defaults
     id: dolci-think-translated-sv
     language: sv
     input:
       <<: *translated_dolci_input
       files: sv/*.parquet
-      expected_rows: 70112
+      expected_rows: 70323
   - <<: *translated_dolci_defaults
     id: dolci-think-translated-uk
     language: uk
     input:
       <<: *translated_dolci_input
       files: uk/*.parquet
-      expected_rows: 68624
+      expected_rows: 69174
 
   - id: dolci-think-32b-decontaminated
     role: broad_reasoning
